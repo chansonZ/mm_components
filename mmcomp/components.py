@@ -252,26 +252,24 @@ class TaskHelpers():
 
 # ====================================================================================================
 
-class ExistingSmiles(luigi.ExternalTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class ExistingSmiles(sl.Task):
     '''External task for getting hand on existing smiles files'''
 
     # PARAMETERS
     dataset_name = luigi.Parameter()
-
-    # TASK PARAMETERS
     replicate_id = luigi.Parameter()
 
-    # DEFINE OUTPUTS
-    def output(self):
-        outfile_path = os.path.join(os.path.abspath("./data"),
-                                    self.clean_filename(self.dataset_name) + ".smiles")
-
-        log.debug("Looking for existing smiles file: " + outfile_path)
-        return { 'smiles' : luigi.LocalTarget(outfile_path) }
+    # TARGETS
+    def out_smiles(self):
+        datapath = os.path.abspath('./data')
+        filename = self.dataset_name + '.smiles'
+        outfile_path = os.path.join(datapath, filename)
+        smilestgt = sl.TargetInfo(self, outfile_path)
+        return smilestgt
 
 # ====================================================================================================
 
-class Concatenate2Files(DependencyMetaTask, TaskHelpers, AuditTrailMixin):
+class Concatenate2Files(DependencyMetaTask, TaskHelpers):
 
     # INPUT TARGETS
     file1_target = luigi.Parameter()
