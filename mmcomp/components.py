@@ -346,7 +346,23 @@ class GenerateSignaturesFilterSubstances(DependencyMetaTask, TaskHelpers, Datase
 
 # ====================================================================================================
 
-class CreateUniqueSignaturesCopy(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class CreateReplicateCopy(sl.Task):
+
+    # TASK PARAMETERS
+    replicate_id = luigi.Parameter()
+
+    # TARGETS
+    in_file = None
+
+    def out_copy(self):
+        return sl.TargetInfo(self, self.in_file().path + '.' + self.replicate_id)
+
+    def run(self):
+        shutil.copy(self.in_file().path, self.out_copy().path)
+
+# ====================================================================================================
+
+class CreateUniqueSignaturesCopy(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
