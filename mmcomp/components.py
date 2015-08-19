@@ -9,10 +9,12 @@ import os
 import random
 import re
 import sys
+import shutil
 import string
 import textwrap
 import time
 import datetime
+import sciluigi as sl
 from ConfigParser import ConfigParser
 
 JAVA_PATH = '/sw/comp/java/x86_64/sun_jdk1.7.0_25/bin/java'
@@ -107,56 +109,6 @@ class DependencyMetaTaskExternal(luigi.ExternalTask):
 
 class DatasetNameMixin():
     dataset_name = luigi.Parameter() # This is used here, so must be included
-
-# ====================================================================================================
-
-class AuditTrailMixin():
-    start_time = None
-    end_time = None
-    exec_time = None
-
-    replicate_id = luigi.Parameter()
-
-    @luigi.Task.event_handler(luigi.Event.START)
-    def save_start_time(self):
-        task_name = self.task_id.split('(')[0]
-        unique_id = time.strftime('%Y%m%d.%H%M%S', time.localtime()) + '.' + ''.join(random.choice(string.ascii_lowercase) for _ in range(3))
-        base_dir = 'audit/{replicate_id}'.format(
-                    replicate_id=self.replicate_id
-                )
-        self.auditlog_file = '{base_dir}/{dataset_name}.{task_name}.{unique_id}.audit.log'.format(
-                    base_dir=base_dir,
-                    dataset_name=self.dataset_name,
-                    task_name=task_name,
-                    unique_id=unique_id
-                )
-        self.start_time = time.time()
-        if not os.path.exists(base_dir):
-            os.makedirs(base_dir)
-        with open(self.auditlog_file, 'w') as log:
-            tsv_writer = csv.writer(log, delimiter='\t')
-            # Write the value of all the tasks variables to the audit log
-            for k, v in self.__dict__.iteritems():
-                tsv_writer.writerow([k, v])
-
-    @luigi.Task.event_handler(luigi.Event.PROCESSING_TIME)
-    def save_end_time(self, task_exectime_sec):
-        self.end_time = time.time()
-        if hasattr(self, 'slurm_exectime_sec'):
-            self.slurm_queuetime_sec = int(task_exectime_sec) - int(self.slurm_exectime_sec)
-        if hasattr(self, 'auditlog_file'):
-            with open(self.auditlog_file, 'a') as log:
-                tsv_writer = csv.writer(log, delimiter='\t')
-                tsv_writer.writerow(['end_time', int(self.end_time)])
-                if hasattr(self, 'slurm_exectime_sec'):
-                    tsv_writer.writerow(['slurm_queuetime_sec', int(self.slurm_queuetime_sec)])
-                    tsv_writer.writerow(['total_tasktime_sec', int(task_exectime_sec)])
-                    tsv_writer.writerow(['derived_runtime_sec', int(self.slurm_exectime_sec)])
-                else:
-                    tsv_writer.writerow(['total_tasktime_sec', int(task_exectime_sec)])
-                    tsv_writer.writerow(['derived_runtime_sec', int(task_exectime_sec)])
-        #else:
-        #    log.info("No audit_log set, so not writing audit log for " + str(self))
 
 # ====================================================================================================
 
@@ -353,7 +305,7 @@ class Concatenate2Files(DependencyMetaTask, TaskHelpers, AuditTrailMixin):
 
 # ====================================================================================================
 
-class GenerateSignaturesFilterSubstances(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class GenerateSignaturesFilterSubstances(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     smiles_target = luigi.Parameter()
@@ -423,7 +375,7 @@ class CreateUniqueSignaturesCopy(DependencyMetaTask, TaskHelpers, DatasetNameMix
 
 # ====================================================================================================
 
-class SampleTrainAndTest(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class SampleTrainAndTest(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
@@ -481,7 +433,7 @@ class SampleTrainAndTest(DependencyMetaTask, TaskHelpers, DatasetNameMixin, Audi
 
 # ====================================================================================================
 
-class CreateSparseTrainDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class CreateSparseTrainDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -506,7 +458,7 @@ class CreateSparseTrainDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin
 
 # ====================================================================================================
 
-class CreateSparseTestDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class CreateSparseTestDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     test_dataset_target = luigi.Parameter()
@@ -533,7 +485,7 @@ class CreateSparseTestDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin,
 
 # ====================================================================================================
 
-class TrainSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class TrainSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -640,7 +592,7 @@ class TrainSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrai
 
 # ====================================================================================================
 
-class TrainLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class TrainLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -695,7 +647,7 @@ class TrainLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditT
 
 # ====================================================================================================
 
-class PredictSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class PredictSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
     # INPUT TARGETS
     svmmodel_target = luigi.Parameter()
     sparse_test_dataset_target = luigi.Parameter()
@@ -731,7 +683,7 @@ class PredictSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTr
 
 # ====================================================================================================
 
-class PredictLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class PredictLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
     # INPUT TARGETS
     linmodel_target = luigi.Parameter()
     sparse_test_dataset_target = luigi.Parameter()
@@ -768,7 +720,7 @@ class PredictLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin, Audi
 
 # ====================================================================================================
 
-class AssessSVMRegression(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class AssessSVMRegression(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     svmmodel_target = luigi.Parameter()
@@ -794,7 +746,7 @@ class AssessSVMRegression(DependencyMetaTask, TaskHelpers, DatasetNameMixin, Aud
 
 # ====================================================================================================
 
-class CreateReport(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class CreateReport(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
@@ -1019,7 +971,7 @@ class CreateReport(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrail
 
 # ====================================================================================================
 
-class CreateElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers, AuditTrailMixin):
+class CreateElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -1047,7 +999,7 @@ class CreateElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers, A
 
 # ====================================================================================================
 
-class PredictElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers, AuditTrailMixin):
+class PredictElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
 
     # INPUT TARGETS
     elasticnet_model_target = luigi.Parameter()
@@ -1069,7 +1021,7 @@ class PredictElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers, 
 
 # ====================================================================================================
 
-class EvaluateElasticNetPrediction(DependencyMetaTask, DatasetNameMixin, TaskHelpers, AuditTrailMixin):
+class EvaluateElasticNetPrediction(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
      # INPUT TARGETS
      test_dataset_target = luigi.Parameter()
      prediction_target = luigi.Parameter()
@@ -1097,7 +1049,7 @@ class EvaluateElasticNetPrediction(DependencyMetaTask, DatasetNameMixin, TaskHel
 
 # ====================================================================================================
 
-class ElasticNetGridSearch(DependencyMetaTask, DatasetNameMixin, TaskHelpers, AuditTrailMixin):
+class ElasticNetGridSearch(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -1172,7 +1124,7 @@ class ElasticNetGridSearch(DependencyMetaTask, DatasetNameMixin, TaskHelpers, Au
 
 # ====================================================================================================
 
-class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
@@ -1420,7 +1372,7 @@ class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrail
 
 # ====================================================================================================
 
-class PushP2SiteToRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class PushP2SiteToRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
     # INPUT TARGETS
     plugin_bundle_target = luigi.Parameter()
 
@@ -1455,7 +1407,7 @@ class PushP2SiteToRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin, 
 
 # ====================================================================================================
 
-class BuildP2SiteOnRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class BuildP2SiteOnRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
     # INPUT TARGETS
     pushp2_completion_target = luigi.Parameter()
     plugin_bundle_target = luigi.Parameter()
@@ -1505,7 +1457,7 @@ class BuildP2SiteOnRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin,
 
 # ====================================================================================================
 
-class ExistingDataFiles(luigi.ExternalTask, AuditTrailMixin):
+class ExistingDataFiles(luigi.ExternalTask):
     '''External task for getting hand on existing data files'''
 
     # PARAMETERS
@@ -1523,7 +1475,7 @@ class ExistingDataFiles(luigi.ExternalTask, AuditTrailMixin):
 
 # ====================================================================================================
 
-class GenerateFingerprint(DependencyMetaTask, DatasetNameMixin, TaskHelpers, AuditTrailMixin):
+class GenerateFingerprint(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
     '''
     Usage of the FingerprintsGenerator Jar file:
 
@@ -1573,7 +1525,7 @@ class GenerateFingerprint(DependencyMetaTask, DatasetNameMixin, TaskHelpers, Aud
 
 # ====================================================================================================
 
-class CompactifyFingerprintHashes(DependencyMetaTask, DatasetNameMixin, TaskHelpers, AuditTrailMixin):
+class CompactifyFingerprintHashes(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
     '''
     Takes a sparse dataset as input and compacts the values before :'s to integers
     counting from 1 and upwards.
@@ -1624,7 +1576,7 @@ class CompactifyFingerprintHashes(DependencyMetaTask, DatasetNameMixin, TaskHelp
 
 # ====================================================================================================
 
-class BCutPreprocess(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class BCutPreprocess(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
@@ -1643,7 +1595,7 @@ class BCutPreprocess(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTra
 
 # ====================================================================================================
 
-class BCutSplitTrainTest(DependencyMetaTask, TaskHelpers, DatasetNameMixin, AuditTrailMixin):
+class BCutSplitTrainTest(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
     # INPUT TARGETS
     bcut_preprocessed_target = luigi.Parameter()
