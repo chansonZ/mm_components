@@ -355,7 +355,12 @@ class CreateReplicateCopy(sl.Task):
     in_file = None
 
     def out_copy(self):
-        return sl.TargetInfo(self, self.in_file().path + '.' + self.replicate_id)
+        if self.in_file is None:
+            raise Exception("In-port field in_file of CreateReplicateCopy is None")
+        elif self.in_file() is None:
+            raise Exception("In-port field in_file of CreateReplicateCopy return None")
+        else:
+            return sl.TargetInfo(self, self.in_file().path + '.' + self.replicate_id)
 
     def run(self):
         shutil.copy(self.in_file().path, self.out_copy().path)
