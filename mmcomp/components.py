@@ -303,29 +303,29 @@ class Concatenate2Files(DependencyMetaTask, TaskHelpers):
 
 # ====================================================================================================
 
-class GenerateSignaturesFilterSubstances(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
-
-    # INPUT TARGETS
-    smiles_target = luigi.Parameter()
+class GenerateSignaturesFilterSubstances(sl.Task):
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
-    min_height = luigi.Parameter()
-    max_height = luigi.Parameter()
+    min_height = luigi.IntParameter()
+    max_height = luigi.IntParameter()
+
+    # INPUT TARGETS
+    in_smiles = None
 
     # DEFINE OUTPUTS
-    def output(self):
-        return { 'signatures' : luigi.LocalTarget(self.get_input('smiles_target').path + '.h%d_%d.sign' % (self.min_height, self.max_height)) }
+    def out_signatures(self):
+        return sl.TargetInfo(self, self.in_smiles().path + '.h%d_%d.sign' % (self.min_height, self.max_height))
 
     # WHAT THE TASK DOES
     def run(self):
-        self.x([JAVA_PATH, '-jar jars/GenerateSignatures.jar -inputfile', self.get_input('smiles_target').path,
+        self.x([JAVA_PATH, '-jar jars/GenerateSignatures.jar -inputfile', self.in_smiles().path,
                 '-threads', self.get_task_config('threads'),
                 '-minheight', str(self.min_height),
                 '-maxheight', str(self.max_height),
-                '-outputfile', self.output()['signatures'].path,
+                '-outputfile', self.out_signatures().path,
                 '-silent'])
-        self.lx(['touch', self.output()['signatures'].path])
+        self.lx(['touch', self.out_signatures().path])
 
     '''
     -inputfile <file [inputfile.smiles]>   filename for input SMILES file
