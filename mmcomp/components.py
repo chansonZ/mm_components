@@ -107,7 +107,6 @@ class GenerateSignaturesFilterSubstances(sl.SlurmHelpers, sl.Task):
     replicate_id = luigi.Parameter()
     min_height = luigi.IntParameter()
     max_height = luigi.IntParameter()
-    java_path = luigi.Parameter()
 
     # INPUT TARGETS
     in_smiles = None
@@ -118,7 +117,7 @@ class GenerateSignaturesFilterSubstances(sl.SlurmHelpers, sl.Task):
 
     # WHAT THE TASK DOES
     def run(self):
-        self.ex([self.java_path, '-jar jars/GenerateSignatures.jar -inputfile', self.in_smiles().path,
+        self.ex(['generate-signatures -inputfile', self.in_smiles().path,
                 '-threads', self.slurminfo.threads,
                 '-minheight', str(self.min_height),
                 '-maxheight', str(self.max_height),
