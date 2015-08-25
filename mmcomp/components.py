@@ -117,7 +117,7 @@ class GenerateSignaturesFilterSubstances(sl.SlurmHelpers, sl.Task):
 
     # WHAT THE TASK DOES
     def run(self):
-        self.ex(['generate-signatures -inputfile', self.in_smiles().path,
+        self.ex(['runjar GenerateSignatures -inputfile', self.in_smiles().path,
                 '-threads', self.slurminfo.threads,
                 '-minheight', str(self.min_height),
                 '-maxheight', str(self.max_height),
