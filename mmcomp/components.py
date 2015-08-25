@@ -17,8 +17,6 @@ import datetime
 import sciluigi as sl
 from ConfigParser import ConfigParser
 
-JAVA_PATH = '/sw/comp/java/x86_64/sun_jdk1.7.0_25/bin/java'
-
 # ====================================================================================================
 
 class JVMHelpers(sl.Task):
@@ -103,12 +101,13 @@ class Concatenate2Files(sl.Task):
 
 # ====================================================================================================
 
-class GenerateSignaturesFilterSubstances(sl.Task):
+class GenerateSignaturesFilterSubstances(sl.SlurmHelpers, sl.Task):
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
     min_height = luigi.IntParameter()
     max_height = luigi.IntParameter()
+    java_path = luigi.Parameter()
 
     # INPUT TARGETS
     in_smiles = None
@@ -119,8 +118,8 @@ class GenerateSignaturesFilterSubstances(sl.Task):
 
     # WHAT THE TASK DOES
     def run(self):
-        self.ex([JAVA_PATH, '-jar jars/GenerateSignatures.jar -inputfile', self.in_smiles().path,
-                '-threads', self.get_task_config('threads'),
+        self.ex([self.java_path, '-jar jars/GenerateSignatures.jar -inputfile', self.in_smiles().path,
+                '-threads', self.slurminfo.threads,
                 '-minheight', str(self.min_height),
                 '-maxheight', str(self.max_height),
                 '-outputfile', self.out_signatures().path,
@@ -206,6 +205,7 @@ class SampleTrainAndTest(sl.Task):
     train_size = luigi.Parameter()
     sampling_method = luigi.Parameter()
     replicate_id = luigi.Parameter()
+    java_path = luigi.Parameter()
 
     # DEFINE OUTPUTS
     def output(self):
@@ -228,7 +228,7 @@ class SampleTrainAndTest(sl.Task):
                       'signature_count' : 'SampleTrainingAndTestSizedBased.jar' }
         jar_file = jar_files[self.sampling_method]
 
-        cmd = [JAVA_PATH, "-jar jars/" + jar_file,
+        cmd = [self.java_path, "-jar jars/" + jar_file,
                      "-inputfile", self.get_input('signatures_target').path,
                      "-testfile", test_temp_path,
                      "-trainingfile", train_temp_path,
@@ -260,6 +260,7 @@ class CreateSparseTrainDataset(sl.Task):
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
+    java_path = luigi.Parameter()
 
     # DEFINE OUTPUTS
     def output(self):
@@ -270,7 +271,7 @@ class CreateSparseTrainDataset(sl.Task):
 
     # WHAT THE TASK DOES
     def run(self):
-        self.ex([JAVA_PATH, "-jar jars/CreateSparseDataset.jar",
+        self.ex([self.java_path, "-jar jars/CreateSparseDataset.jar",
                 "-inputfile", self.get_input('train_dataset_target').path,
                 "-datasetfile", self.output()['sparse_train_dataset'].path,
                 "-signaturesoutfile", self.output()["signatures"].path,
@@ -286,6 +287,7 @@ class CreateSparseTestDataset(sl.Task):
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
+    java_path = luigi.Parameter
 
     # DEFINE OUTPUTS
     def output(self):
@@ -296,7 +298,7 @@ class CreateSparseTestDataset(sl.Task):
 
     # WHAT THE TASK DOES
     def run(self):
-        self.ex([JAVA_PATH, "-jar jars/CreateSparseDataset.jar",
+        self.ex([self.java_path, "-jar jars/CreateSparseDataset.jar",
                 "-inputfile", self.get_input('test_dataset_target').path,
                 "-signaturesinfile", self.get_input('signatures_target').path,
                 "-datasetfile", self.output()["sparse_test_dataset"].path,
@@ -799,13 +801,14 @@ class CreateElasticNetModel(sl.Task):
     # TASK PARAMETERS
     l1_value = luigi.Parameter()
     lambda_value = luigi.Parameter()
+    java_path = luigi.Parameter()
 
     # DEFINE OUTPUTS
     def output(self):
         return { 'model': luigi.LocalTarget(self.get_input('train_dataset_target').path + ".model_{l}_{y}".format(l=self.get_value('l1_value'),y=self.get_value('lambda_value'))) }
 
     def run(self):
-        self.ex([JAVA_PATH, "-jar", "jars/CreateElasticNetModel.jar",
+        self.ex([self.java_path, "-jar", "jars/CreateElasticNetModel.jar",
                 "-inputfile", self.get_input('train_dataset_target').path,
                 "-l1ratio", str(self.get_value('l1_value')),
                 "-lambda", str(self.get_value('lambda_value')),
@@ -828,12 +831,13 @@ class PredictElasticNetModel(sl.Task):
     # TASK PARAMETERS
     l1_value = luigi.Parameter()
     lambda_value = luigi.Parameter()
+    java_path = luigi.Parameter()
 
     def output(self):
         return { 'prediction' : luigi.LocalTarget(self.get_input('elasticnet_model_target').path + ".prediction") }
 
     def run(self):
-        self.ex([JAVA_PATH, "-jar", "jars/PredictElasticNetModel.jar",
+        self.ex([self.java_path, "-jar", "jars/PredictElasticNetModel.jar",
                 "-modelfile", self.get_input('elasticnet_model_target').path,
                 "-testset", self.get_input('test_dataset_target').path,
                 "-outputfile", self.output()['prediction'].path,
@@ -958,6 +962,7 @@ class BuildP2Sites(sl.Task):
     test_size = luigi.Parameter()
     svm_cost = luigi.Parameter()
     svm_gamma = luigi.Parameter()
+    java_path = luigi.Parameter()
 
     def output(self):
         return { 'plugin_bundle' : luigi.LocalTarget(self.temp_folder_path() + '/%s_p2_site.zip' % self.dataset_name) }
@@ -1108,7 +1113,7 @@ class BuildP2Sites(sl.Task):
 
         # Process Endpoint
         self.ex_local(['cd', temp_folder, ';',
-                JAVA_PATH, '-jar',
+                self.java_path, '-jar',
                 '/proj/b2013262/nobackup/workflows/workflows/jars/bnd-2.3.0.jar',
                 'endpoint_bundle.bnd'])
 
@@ -1136,7 +1141,7 @@ class BuildP2Sites(sl.Task):
 
         # Process
         self.ex_local(['cd', temp_folder, ';',
-                 JAVA_PATH, '-jar',
+                 self.java_path, '-jar',
                  '/proj/b2013262/nobackup/workflows/workflows/jars/bnd-2.3.0.jar',
                  'plugin_bundle.bnd'])
 
@@ -1331,13 +1336,14 @@ class GenerateFingerprint(sl.Task):
 
     # PARAMETERS
     fingerprint_type = luigi.Parameter()
+    java_path = luigi.Parameter()
 
     # DEFINE OUTPUTS
     def output(self):
         return { 'fingerprints' : luigi.LocalTarget(self.get_input('dataset_target').path + '.' + self.fingerprint_type + '.csr') }
 
     def run(self):
-        self.ex([JAVA_PATH, '-jar jars/FingerprintsGenerator.jar',
+        self.ex([self.java_path, '-jar jars/FingerprintsGenerator.jar',
                 '-fp', self.fingerprint_type,
                 '-inputfile', self.get_input('dataset_target').path,
                 '-parser', '1',
@@ -1403,13 +1409,14 @@ class BCutPreprocess(sl.Task):
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
+    java_path = luigi.Parameter()
 
     def output(self):
         return { 'bcut_preprocessed' : luigi.LocalTarget(self.get_input('signatures_target').path + '.bcut_preproc'),
                  'bcut_preprocess_log' : luigi.LocalTarget(self.get_input('signatures_target').path + '.bcut_preproc.log') }
 
     def run(self):
-        self.ex([JAVA_PATH, '-cp ../../lib/cdk/cdk-1.4.19.jar:jars/bcut.jar bcut',
+        self.ex([self.java_path, '-cp ../../lib/cdk/cdk-1.4.19.jar:jars/bcut.jar bcut',
                 self.get_input('signatures_target').path,
                 self.output()['bcut_preprocessed'].path])
 
