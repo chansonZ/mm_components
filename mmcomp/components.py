@@ -21,7 +21,7 @@ JAVA_PATH = '/sw/comp/java/x86_64/sun_jdk1.7.0_25/bin/java'
 
 # ====================================================================================================
 
-class JVMHelpers():
+class JVMHelpers(sl.Task):
     '''Mixin with helper methods for starting and keeping alive a JVM, using jpype'''
     def start_jvm(self, jvm_path, class_path):
         import jpype
@@ -35,7 +35,7 @@ class JVMHelpers():
 
 # ====================================================================================================
 
-class DBHelpers():
+class DBHelpers(sl.Task):
     '''Mixin with helper methods for connecting to databases'''
     def connect_mysql(self, db_host, db_name, db_user, db_passwd):
         import MySQLdb as mydb
@@ -52,207 +52,7 @@ class DBHelpers():
 
 # ====================================================================================================
 
-class DependencyMetaTask(luigi.Task):
-    # METHODS FOR AUTOMATING DEPENDENCY MANAGEMENT
-    def get_upstream_targets(self):
-        upstream_tasks = []
-        for param_val in self.param_args:
-            if type(param_val) is dict:
-                if 'upstream' in param_val:
-                    upstream_tasks.append(param_val['upstream']['task'])
-        return upstream_tasks
-
-    def requires(self):
-        return self.get_upstream_targets()
-
-    def get_input(self, input_name):
-        param = self.param_kwargs[input_name]
-        if type(param) is dict and 'upstream' in param:
-            return param['upstream']['task'].output()[param['upstream']['port']]
-        else:
-            return param
-
-    def get_value(self, input_name):
-        param = self.param_kwargs[input_name]
-        if type(param) is dict and 'upstream' in param:
-            input_target = param['upstream']['task'].output()[param['upstream']['port']]
-            if os.path.isfile(input_target.path):
-                with input_target.open() as infile:
-                    csv_reader = csv.reader(infile)
-                    for row in csv_reader:
-                        if row[0] == param['upstream']['key']:
-                            return row[1]
-            else:
-                return 'NA'
-        else:
-            return param
-
-# ====================================================================================================
-
-class DependencyMetaTaskExternal(luigi.ExternalTask):
-    # METHODS FOR AUTOMATING DEPENDENCY MANAGEMENT
-    def requires(self):
-        upstream_tasks = []
-        for param_val in self.param_args:
-            if 'upstream' in param_val:
-                upstream_tasks.append(param_val['upstream']['task'])
-        return upstream_tasks
-
-    def get_input(self, input_name):
-        param = self.param_kwargs[input_name]
-        if type(param) is dict and 'upstream' in param:
-            return param['upstream']['task'].output()[param['upstream']['port']]
-        else:
-            return param
-
-# ====================================================================================================
-
-class DatasetNameMixin():
-    dataset_name = luigi.Parameter() # This is used here, so must be included
-
-# ====================================================================================================
-
-class TaskHelpers():
-    '''Mixin with various convenience methods that most tasks need, such as for executing SLURM commands'''
-    accounted_project = luigi.Parameter()
-
-    # Main Execution methods
-    def execute_in_configured_mode(self, command):
-        '''Execute either locally or via SLURM, depending on config'''
-
-        if self.get_task_config("runmode") == "local":
-            self.execute_command(command)
-
-        elif self.get_task_config("runmode") == "nodejob":
-            train_size="NA"
-            if hasattr(self,'train_size'):
-                train_size = self.train_size
-            replicate_id="NA"
-            if hasattr(self,'replicate_id'):
-                replicate_id = self.replicate_id
-
-            self.execute_hpcjob(command,
-                    accounted_project = self.accounted_project,
-                    time_limit = self.get_task_config("time_limit"),
-                    partition  = self.get_task_config("partition"),
-                    cores      = self.get_task_config("cores"),
-                    jobname    = "".join([train_size,
-                                          replicate_id,
-                                          self.dataset_name,
-                                          self.task_family]),
-                    threads    = self.get_task_config("threads"))
-
-        elif self.get_task_config("runmode") == "mpijob":
-            self.execute_mpijob(command,
-                    accounted_project = self.accounted_project,
-                    time_limit = self.get_task_config("time_limit"),
-                    partition  = self.get_task_config("partition"),
-                    cores      = self.get_task_config("cores"),
-                    jobname    = "".join([self.train_size,
-                                          self.replicate_id,
-                                          self.dataset_name,
-                                          self.task_family]))
-
-    def execute_command(self, command):
-
-        if isinstance(command, list):
-            command = " ".join(command)
-
-        log.info("Executing command: " + str(command))
-        (status, output) = commands.getstatusoutput(command)
-        log.info("STATUS: " + str(status))
-        log.info("OUTPUT: " + "; ".join(str(output).split("\n")))
-        if status != 0:
-            log.error("Command failed: {cmd}".format(cmd=command))
-            log.error("OUTPUT OF FAILED COMMAND: " + "; \n".join(str(output).split("\n")))
-            raise Exception("Command failed: {cmd}\nOutput:\n{output}".format(cmd=command, output=output))
-        return (status, output)
-
-    def execute_hpcjob(self, command, accounted_project, time_limit="4:00:00", partition="node", cores=16, jobname="LuigiNodeJob", threads=16):
-
-        slurm_part = "salloc -A {pr} -p {pt} -n {c} -t {t} -J {m} srun -n 1 -c {thr} ".format(
-                pr  = accounted_project,
-                pt  = partition,
-                c   = cores,
-                t   = time_limit,
-                m   = jobname,
-                thr = threads)
-
-        if isinstance(command, list):
-            command = " ".join(command)
-
-        (status, output) = self.execute_command(slurm_part + command)
-        self.log_slurm_info(output)
-
-        return (status, output)
-
-    def execute_mpijob(self, command, accounted_project, time_limit="4-00:00:00", partition="node", cores=32, jobname="LuigiMPIJob", cores_per_node=16):
-
-        slurm_part = "salloc -A {pr} -p {pt} -n {c} -t {t} -J {m} mpirun -v -np {c} ".format(
-                pr = accounted_project,
-                pt = partition,
-                c  = cores,
-                t  = time_limit,
-                m  = jobname)
-
-        if isinstance(command, list):
-            command = " ".join(command)
-
-        (status, output) = self.execute_command(slurm_part + command)
-        self.log_slurm_info(output)
-
-        return (status, output)
-
-    def execute_locally(self, command):
-        '''Execute locally only'''
-        return self.execute_command(command)
-
-    def x(self, command):
-        '''A short-hand alias around the execute_in_configured_mode method'''
-        return self.execute_in_configured_mode(command)
-
-    def lx(self, command):
-        '''Short-hand alias around the execute_locally method'''
-        return self.execute_locally(command)
-
-
-    # VARIOUS CONVENIENCE METHODS
-    def assert_matches_character_class(self, char_class, a_string):
-        if not bool(re.match("^{c}+$".format(c=char_class), a_string)):
-            raise Exception("String {s} does not match character class {cc}".format(s=a_string, cc=char_class))
-
-    def clean_filename(self, filename):
-        return re.sub("[^A-Za-z0-9\_\ ]", '_', str(filename)).replace(' ', '_')
-
-    def get_task_config(self, name):
-        return luigi.configuration.get_config().get(self.task_family, name)
-
-    def log_slurm_info(self, command_output):
-        matches = re.search('[0-9]+', command_output)
-        if matches:
-            jobid = matches.group(0)
-            with open(self.auditlog_file, 'a') as alog:
-                # Write jobid to audit log
-                tsv_writer = csv.writer(alog, delimiter='\t')
-                tsv_writer.writerow(['slurm_jobid', jobid])
-                # Write slurm execution time to audit log
-                (jobinfo_status, jobinfo_output) = self.execute_command('/usr/bin/sacct -j {jobid} --noheader --format=elapsed'.format(jobid=jobid))
-                last_line = jobinfo_output.split('\n')[-1]
-                sacct_matches = re.search('([0-9\:\-]+)',last_line)
-                if sacct_matches:
-                    slurm_exectime_fmted = sacct_matches.group(1)
-                    # Date format needs to be handled differently if the days field is included
-                    if '-' in slurm_exectime_fmted:
-                        t = time.strptime(slurm_exectime_fmted, '%d-%H:%M:%S')
-                        self.slurm_exectime_sec = int(datetime.timedelta(t.tm_mday, t.tm_sec, 0, 0, t.tm_min, t.tm_hour).total_seconds())
-                    else:
-                        t = time.strptime(slurm_exectime_fmted, '%H:%M:%S')
-                        self.slurm_exectime_sec = int(datetime.timedelta(0, t.tm_sec, 0, 0, t.tm_min, t.tm_hour).total_seconds())
-                    tsv_writer.writerow(['slurm_exectime_sec', int(self.slurm_exectime_sec)])
-
-# ====================================================================================================
-
-class ExistingSmiles(sl.Task):
+class ExistingSmiles(sl.ExternalTask):
     '''External task for getting hand on existing smiles files'''
 
     # PARAMETERS
@@ -269,7 +69,7 @@ class ExistingSmiles(sl.Task):
 
 # ====================================================================================================
 
-class Concatenate2Files(DependencyMetaTask, TaskHelpers):
+class Concatenate2Files(sl.Task):
 
     # INPUT TARGETS
     file1_target = luigi.Parameter()
@@ -319,13 +119,13 @@ class GenerateSignaturesFilterSubstances(sl.Task):
 
     # WHAT THE TASK DOES
     def run(self):
-        self.x([JAVA_PATH, '-jar jars/GenerateSignatures.jar -inputfile', self.in_smiles().path,
+        self.ex([JAVA_PATH, '-jar jars/GenerateSignatures.jar -inputfile', self.in_smiles().path,
                 '-threads', self.get_task_config('threads'),
                 '-minheight', str(self.min_height),
                 '-maxheight', str(self.max_height),
                 '-outputfile', self.out_signatures().path,
                 '-silent'])
-        self.lx(['touch', self.out_signatures().path])
+        self.ex_local(['touch', self.out_signatures().path])
 
     '''
     -inputfile <file [inputfile.smiles]>   filename for input SMILES file
@@ -367,7 +167,8 @@ class CreateReplicateCopy(sl.Task):
 
 # ====================================================================================================
 
-class CreateUniqueSignaturesCopy(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+# TODO: Deprecate??
+class CreateUniqueSignaturesCopy(sl.Task):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
@@ -388,13 +189,13 @@ class CreateUniqueSignaturesCopy(DependencyMetaTask, TaskHelpers, DatasetNameMix
     # EXECUTE
     def run(self):
         if self.replicate_id is not None:
-            self.x(["cp",
+            self.ex(["cp",
                     self.get_input('signatures_target').path,
                     self.output()['signatures'].path])
 
 # ====================================================================================================
 
-class SampleTrainAndTest(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class SampleTrainAndTest(sl.Task):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
@@ -437,22 +238,22 @@ class SampleTrainAndTest(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
         if self.seed != None:
             cmd.extend(["-seed", self.seed])
 
-        self.x(cmd)
+        self.ex(cmd)
 
         # Restore temporary test and train files to their original file names
-        self.lx(["mv",
+        self.ex_local(["mv",
                 test_temp_path,
                 self.output()['test_dataset'].path])
-        self.lx(["mv",
+        self.ex_local(["mv",
                 train_temp_path,
                 self.output()['train_dataset'].path])
-        self.lx(["mv",
+        self.ex_local(["mv",
                 self.output()['train_dataset'].path + '.tmp.log',
                 self.output()['train_dataset'].path + '.log'])
 
 # ====================================================================================================
 
-class CreateSparseTrainDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class CreateSparseTrainDataset(sl.Task):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -469,7 +270,7 @@ class CreateSparseTrainDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin
 
     # WHAT THE TASK DOES
     def run(self):
-        self.x([JAVA_PATH, "-jar jars/CreateSparseDataset.jar",
+        self.ex([JAVA_PATH, "-jar jars/CreateSparseDataset.jar",
                 "-inputfile", self.get_input('train_dataset_target').path,
                 "-datasetfile", self.output()['sparse_train_dataset'].path,
                 "-signaturesoutfile", self.output()["signatures"].path,
@@ -477,7 +278,7 @@ class CreateSparseTrainDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin
 
 # ====================================================================================================
 
-class CreateSparseTestDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class CreateSparseTestDataset(sl.Task):
 
     # INPUT TARGETS
     test_dataset_target = luigi.Parameter()
@@ -495,7 +296,7 @@ class CreateSparseTestDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin)
 
     # WHAT THE TASK DOES
     def run(self):
-        self.x([JAVA_PATH, "-jar jars/CreateSparseDataset.jar",
+        self.ex([JAVA_PATH, "-jar jars/CreateSparseDataset.jar",
                 "-inputfile", self.get_input('test_dataset_target').path,
                 "-signaturesinfile", self.get_input('signatures_target').path,
                 "-datasetfile", self.output()["sparse_test_dataset"].path,
@@ -504,7 +305,7 @@ class CreateSparseTestDataset(DependencyMetaTask, TaskHelpers, DatasetNameMixin)
 
 # ====================================================================================================
 
-class TrainSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class TrainSVMModel(sl.Task):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -574,7 +375,7 @@ class TrainSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
         if self.train_dataset_gzipped:
             # Unpack the train data file
-            self.lx(["gunzip -c",
+            self.ex_local(["gunzip -c",
                      trainfile,
                      ">",
                      trainfile_gunzipped])
@@ -586,7 +387,7 @@ class TrainSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
         # Select train command based on parameter
         if self.parallel_train:
-            self.x(['pisvm-train',
+            self.ex(['pisvm-train',
                     "-o", str(o),
                     "-q", str(q),
                     "-s", self.svm_type,
@@ -599,7 +400,7 @@ class TrainSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
                     ">",
                     "/dev/null"]) # Needed, since there is no quiet mode in pisvm :/
         else:
-            self.x(['svm-train',
+            self.ex(['svm-train',
                 "-s", self.svm_type,
                 "-t", self.svm_kernel_type,
                 "-g", self.svm_gamma,
@@ -611,7 +412,7 @@ class TrainSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
 # ====================================================================================================
 
-class TrainLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class TrainLinearModel(sl.Task):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -646,7 +447,7 @@ class TrainLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
         if self.train_dataset_gzipped:
             # Unpack the train data file
-            self.lx(["gunzip -c",
+            self.ex_local(["gunzip -c",
                      trainfile,
                      ">",
                      trainfile_gunzipped])
@@ -656,8 +457,8 @@ class TrainLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
             # be the same for both, below
             trainfile = trainfile_gunzipped
 
-        #self.x(['distlin-train',
-        self.x(['lin-train',
+        #self.ex(['distlin-train',
+        self.ex(['lin-train',
             "-s", self.lin_type,
             "-c", self.lin_cost,
             "-q", # quiet mode
@@ -666,7 +467,7 @@ class TrainLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
 # ====================================================================================================
 
-class PredictSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class PredictSVMModel(sl.Task):
     # INPUT TARGETS
     svmmodel_target = luigi.Parameter()
     sparse_test_dataset_target = luigi.Parameter()
@@ -687,7 +488,7 @@ class PredictSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
             test_dataset_path = self.get_input('sparse_test_dataset_target').path + ".ungzipped"
 
             # Un-gzip the csr file
-            self.lx(["gunzip -c",
+            self.ex_local(["gunzip -c",
                      self.get_input('sparse_test_dataset_target').path,
                      ">",
                      test_dataset_path])
@@ -695,14 +496,14 @@ class PredictSVMModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
             test_dataset_path = self.get_input('sparse_test_dataset_target').path
 
         # Run prediction
-        self.x(["/proj/b2013262/nobackup/src/libsvm-3.17/svm-predict",
+        self.ex(["/proj/b2013262/nobackup/src/libsvm-3.17/svm-predict",
                 test_dataset_path,
                 self.get_input('svmmodel_target').path,
                 self.output()["prediction"].path])
 
 # ====================================================================================================
 
-class PredictLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class PredictLinearModel(sl.Task):
     # INPUT TARGETS
     linmodel_target = luigi.Parameter()
     sparse_test_dataset_target = luigi.Parameter()
@@ -723,7 +524,7 @@ class PredictLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
             test_dataset_path = self.get_input('sparse_test_dataset_target').path + ".ungzipped"
 
             # Un-gzip the csr file
-            self.lx(["gunzip -c",
+            self.ex_local(["gunzip -c",
                      self.get_input('sparse_test_dataset_target').path,
                      ">",
                      test_dataset_path])
@@ -731,15 +532,15 @@ class PredictLinearModel(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
             test_dataset_path = self.get_input('sparse_test_dataset_target').path
 
         # Run prediction
-        #self.x(["/proj/b2013262/nobackup/opt/mpi-liblinear-1.94/predict",
-        self.x(["/proj/b2013262/nobackup/workflows/workflows/bin/lin-predict",
+        #self.ex(["/proj/b2013262/nobackup/opt/mpi-liblinear-1.94/predict",
+        self.ex(["/proj/b2013262/nobackup/workflows/workflows/bin/lin-predict",
                 test_dataset_path,
                 self.get_input('linmodel_target').path,
                 self.output()["prediction"].path])
 
 # ====================================================================================================
 
-class AssessSVMRegression(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class AssessSVMRegression(sl.Task):
 
     # INPUT TARGETS
     svmmodel_target = luigi.Parameter()
@@ -759,13 +560,13 @@ class AssessSVMRegression(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
     # WHAT THE TASK DOES
     def run(self):
         # Run Assess
-        self.x(["/usr/bin/xvfb-run /sw/apps/R/x86_64/3.0.2/bin/Rscript assess/assess.r",
+        self.ex(["/usr/bin/xvfb-run /sw/apps/R/x86_64/3.0.2/bin/Rscript assess/assess.r",
                 "-p", self.get_input('prediction_target').path,
                 "-t", self.get_input('sparse_test_dataset_target').path])
 
 # ====================================================================================================
 
-class CreateReport(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class CreateReport(sl.Task):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
@@ -990,7 +791,7 @@ class CreateReport(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
 # ====================================================================================================
 
-class CreateElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
+class CreateElasticNetModel(sl.Task):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -1004,21 +805,21 @@ class CreateElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
         return { 'model': luigi.LocalTarget(self.get_input('train_dataset_target').path + ".model_{l}_{y}".format(l=self.get_value('l1_value'),y=self.get_value('lambda_value'))) }
 
     def run(self):
-        self.x([JAVA_PATH, "-jar", "jars/CreateElasticNetModel.jar",
+        self.ex([JAVA_PATH, "-jar", "jars/CreateElasticNetModel.jar",
                 "-inputfile", self.get_input('train_dataset_target').path,
                 "-l1ratio", str(self.get_value('l1_value')),
                 "-lambda", str(self.get_value('lambda_value')),
                 "-outputfile", self.output()['model'].path,
                 "-silent"])
 
-        #self.lx(["mv",
+        #self.ex_local(["mv",
         #         self.get_input('train_dataset_target').path + ".model",
         #         self.get_input('train_dataset_target').path + ".model_{l}_{y}".format(l=self.get_value('l1_value'),y=self.get_value('lambda_value'))])
 
 
 # ====================================================================================================
 
-class PredictElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
+class PredictElasticNetModel(sl.Task):
 
     # INPUT TARGETS
     elasticnet_model_target = luigi.Parameter()
@@ -1032,7 +833,7 @@ class PredictElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
         return { 'prediction' : luigi.LocalTarget(self.get_input('elasticnet_model_target').path + ".prediction") }
 
     def run(self):
-        self.x([JAVA_PATH, "-jar", "jars/PredictElasticNetModel.jar",
+        self.ex([JAVA_PATH, "-jar", "jars/PredictElasticNetModel.jar",
                 "-modelfile", self.get_input('elasticnet_model_target').path,
                 "-testset", self.get_input('test_dataset_target').path,
                 "-outputfile", self.output()['prediction'].path,
@@ -1040,7 +841,7 @@ class PredictElasticNetModel(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
 
 # ====================================================================================================
 
-class EvaluateElasticNetPrediction(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
+class EvaluateElasticNetPrediction(sl.Task):
      # INPUT TARGETS
      test_dataset_target = luigi.Parameter()
      prediction_target = luigi.Parameter()
@@ -1068,7 +869,7 @@ class EvaluateElasticNetPrediction(DependencyMetaTask, DatasetNameMixin, TaskHel
 
 # ====================================================================================================
 
-class ElasticNetGridSearch(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
+class ElasticNetGridSearch(sl.Task):
 
     # INPUT TARGETS
     train_dataset_target = luigi.Parameter()
@@ -1143,7 +944,7 @@ class ElasticNetGridSearch(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
 
 # ====================================================================================================
 
-class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class BuildP2Sites(sl.Task):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
@@ -1237,26 +1038,26 @@ class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
         model_folder_abspath = temp_folder_abspath + '/model'
 
         # Create temp and model folder
-        self.lx(['mkdir -p', model_folder_abspath])
+        self.ex_local(['mkdir -p', model_folder_abspath])
 
         # Copy some files into the newly created model folder
         # (which is in turn inside the newly created temp folder)
 
         signatures_file = model_folder + '/signatures.txt'
         signatures_file_abspath = model_folder_abspath + '/signatures.txt'
-        self.lx(['cp',
+        self.ex_local(['cp',
                  self.get_input('signatures_target').path,
                  signatures_file_abspath])
 
         train_dataset_file = model_folder + '/sparse_train_datset.csr'
         train_dataset_file_abspath = model_folder_abspath + '/sparse_train_datset.csr'
-        self.lx(['cp',
+        self.ex_local(['cp',
                  self.get_input('sparse_train_dataset_target').path,
                  train_dataset_file_abspath])
 
         svmmodel_file = model_folder + '/model.svm'
         svmmodel_file_abspath = model_folder_abspath + '/model.svm'
-        self.lx(['cp',
+        self.ex_local(['cp',
                  self.get_input('svmmodel_target').path,
                  svmmodel_file_abspath])
 
@@ -1271,7 +1072,7 @@ class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
         # Zip the files (Has to happen after writing of plugin.xml, in order to include it)
         cmd = ['cd', temp_folder, ';',
                'zip -r ', 'plugin_bundle.zip', './*']
-        self.lx(cmd)
+        self.ex_local(cmd)
 
         # -----------------------------------------------------------------------
         # ENDPOINT FILE
@@ -1306,7 +1107,7 @@ class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
             endpoint_bndfile.write(endpoint_bndfile_content)
 
         # Process Endpoint
-        self.lx(['cd', temp_folder, ';',
+        self.ex_local(['cd', temp_folder, ';',
                 JAVA_PATH, '-jar',
                 '/proj/b2013262/nobackup/workflows/workflows/jars/bnd-2.3.0.jar',
                 'endpoint_bundle.bnd'])
@@ -1334,7 +1135,7 @@ class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
             plugin_bndfile.write(plugin_bndfile_content)
 
         # Process
-        self.lx(['cd', temp_folder, ';',
+        self.ex_local(['cd', temp_folder, ';',
                  JAVA_PATH, '-jar',
                  '/proj/b2013262/nobackup/workflows/workflows/jars/bnd-2.3.0.jar',
                  'plugin_bundle.bnd'])
@@ -1362,14 +1163,14 @@ class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
 
         # Create a folder for features
         features_folder = temp_folder + '/source.p2/features'
-        self.lx(['mkdir -p', features_folder])
+        self.ex_local(['mkdir -p', features_folder])
 
         # Write out the content of the feature.xml file
         with open(temp_folder + '/feature.xml', 'w') as features_file:
             features_file.write(features_file_content)
 
         # Zip the feature.xml file, into a file in the features folder
-        self.lx(['pwd; cd', temp_folder, ';',
+        self.ex_local(['pwd; cd', temp_folder, ';',
                  'zip', 'source.p2/features/' + bundle_id + '.jar', 'feature.xml'])
 
         # -----------------------------------------------------------------------
@@ -1382,16 +1183,16 @@ class BuildP2Sites(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
                   '-metadataRepositoryName', '"MM SVM Model for ' + self.dataset_name + '"',
                   '-source', temp_folder_abspath + '/source.p2',
                   '-publishArtifacts']
-        self.lx(pubcmd)
+        self.ex_local(pubcmd)
 
         zipcmd = ['cd', temp_folder + '/site.p2;',
                   'zip -r', '../%s_p2_site.zip' % self.dataset_name,
                   './*']
-        self.lx(zipcmd)
+        self.ex_local(zipcmd)
 
 # ====================================================================================================
 
-class PushP2SiteToRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class PushP2SiteToRemoteHost(sl.Task):
     # INPUT TARGETS
     plugin_bundle_target = luigi.Parameter()
 
@@ -1407,26 +1208,26 @@ class PushP2SiteToRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
         remote_folder = self.remote_base_folder + '/' + self.replicate_id
         remote_command = 'mkdir -p ' + remote_folder
 
-        self.lx(['ssh -o PubkeyAuthentication=no',
+        self.ex_local(['ssh -o PubkeyAuthentication=no',
                  '%s@%s' % (self.remote_user, self.remote_host),
                  '\'' + remote_command + '\''])
 
         # Copy the p2 site zip file to the remote host via SCP
-        self.lx(['scp',
+        self.ex_local(['scp',
                  self.get_input('plugin_bundle_target').path,
                  '%s@%s:%s/' % (self.remote_user,
                                 self.remote_host,
                                 remote_folder)])
 
         # Write some dummy content to the completion marker
-        self.lx(['echo',
+        self.ex_local(['echo',
                  '"p2 site pushed"',
                  '>',
                  self.output()['completion_marker'].path])
 
 # ====================================================================================================
 
-class BuildP2SiteOnRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class BuildP2SiteOnRemoteHost(sl.Task):
     # INPUT TARGETS
     pushp2_completion_target = luigi.Parameter()
     plugin_bundle_target = luigi.Parameter()
@@ -1451,7 +1252,7 @@ class BuildP2SiteOnRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin)
                 dir = self.replicate_id,
                 zipfile = p2_site_zip_filename)
 
-        self.lx(['ssh -o PubkeyAuthentication=no',
+        self.ex_local(['ssh -o PubkeyAuthentication=no',
                  '%s@%s' % (self.remote_user, self.remote_host),
                  '\'' + remote_command + '\''])
 
@@ -1464,12 +1265,12 @@ class BuildP2SiteOnRemoteHost(DependencyMetaTask, TaskHelpers, DatasetNameMixin)
                 bundle_name=self.bundle_name,
                 site_folder=self.replicate_id
         )
-        self.lx(['ssh -o PubkeyAuthentication=no',
+        self.ex_local(['ssh -o PubkeyAuthentication=no',
                  '%s@%s' % (self.remote_user, self.remote_host),
                  '\'' + remote_command + '\''])
 
         # Write some dummy content to the completion marker
-        self.lx(['echo',
+        self.ex_local(['echo',
                  '"p2 site built"',
                  '>',
                  self.output()['completion_marker'].path])
@@ -1494,7 +1295,7 @@ class ExistingDataFiles(luigi.ExternalTask):
 
 # ====================================================================================================
 
-class GenerateFingerprint(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
+class GenerateFingerprint(sl.Task):
     '''
     Usage of the FingerprintsGenerator Jar file:
 
@@ -1536,7 +1337,7 @@ class GenerateFingerprint(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
         return { 'fingerprints' : luigi.LocalTarget(self.get_input('dataset_target').path + '.' + self.fingerprint_type + '.csr') }
 
     def run(self):
-        self.x([JAVA_PATH, '-jar jars/FingerprintsGenerator.jar',
+        self.ex([JAVA_PATH, '-jar jars/FingerprintsGenerator.jar',
                 '-fp', self.fingerprint_type,
                 '-inputfile', self.get_input('dataset_target').path,
                 '-parser', '1',
@@ -1544,7 +1345,7 @@ class GenerateFingerprint(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
 
 # ====================================================================================================
 
-class CompactifyFingerprintHashes(DependencyMetaTask, DatasetNameMixin, TaskHelpers):
+class CompactifyFingerprintHashes(sl.Task):
     '''
     Takes a sparse dataset as input and compacts the values before :'s to integers
     counting from 1 and upwards.
@@ -1595,7 +1396,7 @@ class CompactifyFingerprintHashes(DependencyMetaTask, DatasetNameMixin, TaskHelp
 
 # ====================================================================================================
 
-class BCutPreprocess(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class BCutPreprocess(sl.Task):
 
     # INPUT TARGETS
     signatures_target = luigi.Parameter()
@@ -1608,13 +1409,13 @@ class BCutPreprocess(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
                  'bcut_preprocess_log' : luigi.LocalTarget(self.get_input('signatures_target').path + '.bcut_preproc.log') }
 
     def run(self):
-        self.x([JAVA_PATH, '-cp ../../lib/cdk/cdk-1.4.19.jar:jars/bcut.jar bcut',
+        self.ex([JAVA_PATH, '-cp ../../lib/cdk/cdk-1.4.19.jar:jars/bcut.jar bcut',
                 self.get_input('signatures_target').path,
                 self.output()['bcut_preprocessed'].path])
 
 # ====================================================================================================
 
-class BCutSplitTrainTest(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
+class BCutSplitTrainTest(sl.Task):
 
     # INPUT TARGETS
     bcut_preprocessed_target = luigi.Parameter()
@@ -1633,7 +1434,7 @@ class BCutSplitTrainTest(DependencyMetaTask, TaskHelpers, DatasetNameMixin):
                                         te=str(self.test_size))) }
 
     def run(self):
-        self.x(['/usr/bin/xvfb-run /sw/apps/R/x86_64/3.0.2/bin/Rscript r/pick_bcut.r',
+        self.ex(['/usr/bin/xvfb-run /sw/apps/R/x86_64/3.0.2/bin/Rscript r/pick_bcut.r',
                 '--input_file=%s' % self.get_input('bcut_preprocessed_target').path,
                 '--training_file=%s' % self.output()['train_dataset'].path,
                 '--test_file=%s' % self.output()['test_dataset'].path,
