@@ -101,7 +101,7 @@ class Concatenate2Files(sl.Task):
 
 # ====================================================================================================
 
-class GenerateSignaturesFilterSubstances(sl.SlurmHelpers, sl.Task):
+class GenerateSignaturesFilterSubstances(sl.SlurmTask):
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
@@ -162,41 +162,11 @@ class CreateReplicateCopy(sl.Task):
 
     def run(self):
         shutil.copy(self.in_file().path, self.out_copy().path)
+        time.sleep(3)
 
 # ====================================================================================================
 
-# TODO: Deprecate??
-class CreateUniqueSignaturesCopy(sl.Task):
-
-    # INPUT TARGETS
-    signatures_target = luigi.Parameter()
-
-    # TASK PARAMETERS
-    replicate_id = luigi.Parameter()
-
-    # DEFINE OUTPUTS
-    def output(self):
-        replicate_id = self.replicate_id
-        base_dir = 'data/' + replicate_id + '/'
-        if not os.path.exists(base_dir):
-            os.makedirs(base_dir)
-        local_part = self.get_input('signatures_target').path.split('/')[-1]
-        return { 'signatures' :
-                    luigi.LocalTarget(base_dir + local_part) }
-
-    # EXECUTE
-    def run(self):
-        if self.replicate_id is not None:
-            self.ex(["cp",
-                    self.get_input('signatures_target').path,
-                    self.output()['signatures'].path])
-
-# ====================================================================================================
-
-class SampleTrainAndTest(sl.Task):
-
-    # INPUT TARGETS
-    signatures_target = luigi.Parameter()
+class SampleTrainAndTest(sl.SlurmTask):
 
     # TASK PARAMETERS
     seed = luigi.Parameter(default=None)
