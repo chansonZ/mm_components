@@ -146,7 +146,6 @@ class CreateReplicateCopy(sl.Task):
 
     def run(self):
         shutil.copy(self.in_file().path, self.out_copy().path)
-        time.sleep(3)
 
 # ====================================================================================================
 
@@ -201,13 +200,10 @@ class SampleTrainAndTest(sl.SlurmTask):
         # Restore temporary test and train files to their original file names
         shutil.move(test_temp_path,
                     self.out_testdata().path)
-        time.sleep(3)
         shutil.move(train_temp_path,
                     self.out_traindata().path)
-        time.sleep(3)
         shutil.move(self.out_traindata().path + '.tmp.log',
                     self.out_traindata().path + '.log')
-        time.sleep(3)
 
 # ====================================================================================================
 
