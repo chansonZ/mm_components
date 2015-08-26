@@ -199,15 +199,15 @@ class SampleTrainAndTest(sl.SlurmTask):
         self.ex(cmd)
 
         # Restore temporary test and train files to their original file names
-        self.ex_local(["mv",
-                test_temp_path,
-                self.output()['test_dataset'].path])
-        self.ex_local(["mv",
-                train_temp_path,
-                self.output()['train_dataset'].path])
-        self.ex_local(["mv",
-                self.output()['train_dataset'].path + '.tmp.log',
-                self.output()['train_dataset'].path + '.log'])
+        shutil.move(test_temp_path,
+                    self.out_testdata().path)
+        time.sleep(3)
+        shutil.move(train_temp_path,
+                    self.out_traindata().path)
+        time.sleep(3)
+        shutil.move(self.out_traindata().path + '.tmp.log',
+                    self.out_traindata().path + '.log')
+        time.sleep(3)
 
 # ====================================================================================================
 
