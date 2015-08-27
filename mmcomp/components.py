@@ -70,8 +70,8 @@ class ExistingSmiles(sl.ExternalTask):
 class Concatenate2Files(sl.Task):
 
     # INPUT TARGETS
-    file1_target = luigi.Parameter()
-    file2_target = luigi.Parameter()
+    in_file1 = None
+    in_file2 = None
 
     # TASK PARAMETERS
     skip_file1_header = luigi.BooleanParameter(default=True)
@@ -207,37 +207,38 @@ class SampleTrainAndTest(sl.SlurmTask):
 
 # ====================================================================================================
 
-class CreateSparseTrainDataset(sl.Task):
-
-    # INPUT TARGETS
-    train_dataset_target = luigi.Parameter()
+class CreateSparseTrainDataset(sl.SlurmTask):
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
-    java_path = luigi.Parameter()
 
-    # DEFINE OUTPUTS
-    def output(self):
-        basepath = self.get_input('train_dataset_target').path
-        return { "sparse_train_dataset" : luigi.LocalTarget(basepath + ".csr"),
-                 "signatures" : luigi.LocalTarget(basepath + ".signatures"),
-                 "log" : luigi.LocalTarget(basepath + ".csr.log") }
+    # INPUT TARGETS
+    in_traindata = None
+
+    def out_sparsetraindata(self):
+        return sl.TargetInfo(self, self.in_traindata().path + '.csr')
+
+    def out_signatures(self):
+        return sl.TargetInfo(self, self.in_traindata().path + '.signatures')
+
+    def out_log(self):
+        return sl.TargetInfo(self, self.in_traindata().path + '.csr.log')
 
     # WHAT THE TASK DOES
     def run(self):
-        self.ex([self.java_path, "-jar jars/CreateSparseDataset.jar",
-                "-inputfile", self.get_input('train_dataset_target').path,
-                "-datasetfile", self.output()['sparse_train_dataset'].path,
-                "-signaturesoutfile", self.output()["signatures"].path,
-                "-silent"])
+        self.ex(['runjar', 'CreateSparseDataset',
+                '-inputfile', self.in_traindata().path,
+                '-datasetfile', self.out_sparsetraindata().path,
+                '-signaturesoutfile', self.out_signatures().path,
+                '-silent'])
 
 # ====================================================================================================
 
 class CreateSparseTestDataset(sl.Task):
 
     # INPUT TARGETS
-    test_dataset_target = luigi.Parameter()
-    signatures_target = luigi.Parameter()
+    in_test_dataset = None
+    in_signatures = None
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
@@ -264,7 +265,7 @@ class CreateSparseTestDataset(sl.Task):
 class TrainSVMModel(sl.Task):
 
     # INPUT TARGETS
-    train_dataset_target = luigi.Parameter()
+    in_train_dataset = None
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
@@ -371,7 +372,7 @@ class TrainSVMModel(sl.Task):
 class TrainLinearModel(sl.Task):
 
     # INPUT TARGETS
-    train_dataset_target = luigi.Parameter()
+    in_train_dataset = None
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
@@ -425,8 +426,8 @@ class TrainLinearModel(sl.Task):
 
 class PredictSVMModel(sl.Task):
     # INPUT TARGETS
-    svmmodel_target = luigi.Parameter()
-    sparse_test_dataset_target = luigi.Parameter()
+    in_svmmodel = None
+    in_sparse_test_dataset = None
     replicate_id = luigi.Parameter()
 
     # TASK PARAMETERS
@@ -461,8 +462,8 @@ class PredictSVMModel(sl.Task):
 
 class PredictLinearModel(sl.Task):
     # INPUT TARGETS
-    linmodel_target = luigi.Parameter()
-    sparse_test_dataset_target = luigi.Parameter()
+    in_linmodel = None
+    in_sparse_test_dataset = None
     replicate_id = luigi.Parameter()
 
     # TASK PARAMETERS
@@ -499,9 +500,9 @@ class PredictLinearModel(sl.Task):
 class AssessSVMRegression(sl.Task):
 
     # INPUT TARGETS
-    svmmodel_target = luigi.Parameter()
-    sparse_test_dataset_target = luigi.Parameter()
-    prediction_target = luigi.Parameter()
+    in_svmmodel = None
+    in_sparse_test_dataset = None
+    in_prediction = None
 
     # TASK PARAMETERS
     test_dataset_gzipped = luigi.BooleanParameter(default=True)
@@ -525,14 +526,14 @@ class AssessSVMRegression(sl.Task):
 class CreateReport(sl.Task):
 
     # INPUT TARGETS
-    signatures_target = luigi.Parameter()
-    sample_traintest_log_target = luigi.Parameter()
-    sparse_testdataset_log_target = luigi.Parameter()
-    sparse_traindataset_log_target = luigi.Parameter()
-    train_dataset_target = luigi.Parameter()
-    svmmodel_target = luigi.Parameter()
-    assess_svm_log_target = luigi.Parameter()
-    assess_svm_plot_target = luigi.Parameter()
+    in_signatures = None
+    in_sample_traintest_log = None
+    in_sparse_testdataset_log = None
+    in_sparse_traindataset_log = None
+    in_train_dataset = None
+    in_svmmodel = None
+    in_assess_svm_log = None
+    in_assess_svm_plot = None
 
     # TASK PARAMETERS
     dataset_name = luigi.Parameter()
@@ -750,7 +751,7 @@ class CreateReport(sl.Task):
 class CreateElasticNetModel(sl.Task):
 
     # INPUT TARGETS
-    train_dataset_target = luigi.Parameter()
+    in_train_dataset = None
 
     # TASK PARAMETERS
     l1_value = luigi.Parameter()
@@ -779,8 +780,8 @@ class CreateElasticNetModel(sl.Task):
 class PredictElasticNetModel(sl.Task):
 
     # INPUT TARGETS
-    elasticnet_model_target = luigi.Parameter()
-    test_dataset_target = luigi.Parameter()
+    in_elasticnet_model = None
+    in_test_dataset = None
 
     # TASK PARAMETERS
     l1_value = luigi.Parameter()
@@ -801,8 +802,8 @@ class PredictElasticNetModel(sl.Task):
 
 class EvaluateElasticNetPrediction(sl.Task):
      # INPUT TARGETS
-     test_dataset_target = luigi.Parameter()
-     prediction_target = luigi.Parameter()
+     in_test_dataset = None
+     in_prediction = None
 
      # TASK PARAMETERS
      l1_value = luigi.Parameter()
@@ -830,8 +831,8 @@ class EvaluateElasticNetPrediction(sl.Task):
 class ElasticNetGridSearch(sl.Task):
 
     # INPUT TARGETS
-    train_dataset_target = luigi.Parameter()
-    test_dataset_target = luigi.Parameter()
+    in_train_dataset = None
+    in_test_dataset = None
     replicate_id = luigi.Parameter()
 
     # TASK PARAMETERS
@@ -905,10 +906,10 @@ class ElasticNetGridSearch(sl.Task):
 class BuildP2Sites(sl.Task):
 
     # INPUT TARGETS
-    signatures_target = luigi.Parameter()
-    sparse_train_dataset_target = luigi.Parameter()
-    svmmodel_target = luigi.Parameter()
-    assess_svm_log_target = luigi.Parameter()
+    in_signatures = None
+    in_sparse_train_dataset = None
+    in_svmmodel = None
+    in_assess_svm_log = None
 
     # TASK PARAMETERS
     dataset_name = luigi.Parameter()
@@ -1153,7 +1154,7 @@ class BuildP2Sites(sl.Task):
 
 class PushP2SiteToRemoteHost(sl.Task):
     # INPUT TARGETS
-    plugin_bundle_target = luigi.Parameter()
+    in_plugin_bundle = None
 
     # TASK PARAMETERS
     remote_host = luigi.Parameter()
@@ -1188,8 +1189,8 @@ class PushP2SiteToRemoteHost(sl.Task):
 
 class BuildP2SiteOnRemoteHost(sl.Task):
     # INPUT TARGETS
-    pushp2_completion_target = luigi.Parameter()
-    plugin_bundle_target = luigi.Parameter()
+    in_pushp2_completion = None
+    in_plugin_bundle = None
 
     # TASK PARAMETERS
     remote_host = luigi.Parameter()
@@ -1286,7 +1287,7 @@ class GenerateFingerprint(sl.Task):
     '''
 
     # INPUT TARGETS
-    dataset_target = luigi.Parameter()
+    in_dataset = None
 
     # PARAMETERS
     fingerprint_type = luigi.Parameter()
@@ -1311,8 +1312,8 @@ class CompactifyFingerprintHashes(sl.Task):
     counting from 1 and upwards.
     '''
 
-    train_fingerprints_target = luigi.Parameter()
-    test_fingerprints_target = luigi.Parameter()
+    in_train_fingerprints = None
+    in_test_fingerprints = None
 
     def output(self):
         return { 'train_fingerprints' : luigi.LocalTarget(self.get_input('train_fingerprints_target').path + '.compacted'),
@@ -1359,7 +1360,7 @@ class CompactifyFingerprintHashes(sl.Task):
 class BCutPreprocess(sl.Task):
 
     # INPUT TARGETS
-    signatures_target = luigi.Parameter()
+    in_signatures = None
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
@@ -1379,7 +1380,7 @@ class BCutPreprocess(sl.Task):
 class BCutSplitTrainTest(sl.Task):
 
     # INPUT TARGETS
-    bcut_preprocessed_target = luigi.Parameter()
+    in_bcut_preprocessed = None
 
     # TASK PARAMETERS
     train_size = luigi.Parameter()
