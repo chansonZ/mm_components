@@ -5,3 +5,4 @@ CreateReplicateCopy = components.CreateReplicateCopy
 GenerateSignaturesFilterSubstances = components.GenerateSignaturesFilterSubstances
 SampleTrainAndTest = components.SampleTrainAndTest
 CreateSparseTrainDataset = components.CreateSparseTrainDataset
+TrainLinearModel = components.TrainLinearModel

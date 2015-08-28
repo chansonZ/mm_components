@@ -335,7 +335,7 @@ class TrainSVMModel(sl.Task):
 
         if self.train_dataset_gzipped:
             # Unpack the train data file
-            self.ex_local(['gunzip -c',
+            self.ex_local(['gunzip', '-c',
                      trainfile,
                      '>',
                      trainfile_gunzipped])
@@ -372,14 +372,13 @@ class TrainSVMModel(sl.Task):
 
 # ====================================================================================================
 
-class TrainLinearModel(sl.Task):
+class TrainLinearModel(sl.SlurmTask):
 
     # INPUT TARGETS
     in_train_dataset = None
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
-    train_size = luigi.Parameter()
     lin_type = luigi.Parameter() # 0 (regression)
     lin_cost = luigi.Parameter() # 100
     # Let's wait with implementing these
@@ -407,7 +406,7 @@ class TrainLinearModel(sl.Task):
 
         if self.train_dataset_gzipped:
             # Unpack the train data file
-            self.ex_local(['gunzip -c',
+            self.ex_local(['gunzip', '-c',
                      trainfile,
                      '>',
                      trainfile_gunzipped])
@@ -482,7 +481,7 @@ class PredictLinearModel(sl.Task):
             test_dataset_path = self.in_sparse_test_dataset().path + '.ungzipped'
 
             # Un-gzip the csr file
-            self.ex_local(['gunzip -c',
+            self.ex_local(['gunzip', '-c',
                      self.in_sparse_test_dataset().path,
                      '>',
                      test_dataset_path])
