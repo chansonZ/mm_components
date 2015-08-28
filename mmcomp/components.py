@@ -128,6 +128,21 @@ class GenerateSignaturesFilterSubstances(sl.SlurmTask):
 
 # ====================================================================================================
 
+class UnGzipFile(sl.Task):
+    # TARGETS
+    in_gzipped = None
+
+    def out_ungzipped(self):
+        return sl.TargetInfo(self, self.in_gzipped().path + '.ungzip')
+
+    def run(self):
+        self.ex(['gunzip', '-c',
+                  self.in_gzipped().path,
+                  '>',
+                  self.out_ungzipped().path])
+
+# ====================================================================================================
+
 class CreateReplicateCopy(sl.Task):
 
     # TASK PARAMETERS
