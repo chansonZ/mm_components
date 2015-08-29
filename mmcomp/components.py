@@ -252,7 +252,7 @@ class CreateSparseTrainDataset(sl.SlurmTask):
 class CreateSparseTestDataset(sl.Task):
 
     # INPUT TARGETS
-    in_test_dataset = None
+    in_testdata = None
     in_signatures = None
 
     # TASK PARAMETERS
@@ -260,21 +260,21 @@ class CreateSparseTestDataset(sl.Task):
     java_path = luigi.Parameter
 
     # DEFINE OUTPUTS
-    def out_sparse_test_dataset(self):
+    def out_sparse_testdata(self):
         return sl.TargetInfo(self, self.get_basepath()+ '.csr')
     def out_signatures(self):
         return sl.TargetInfo(self, self.get_basepath()+ '.signatures')
     def out_log(self):
         return sl.TargetInfo(self, self.get_basepath()+ '.csr.log')
     def get_basepath(self):
-        return self.in_test_dataset().path
+        return self.in_testdata().path
 
     # WHAT THE TASK DOES
     def run(self):
         self.ex([self.java_path, '-jar jars/CreateSparseDataset.jar',
-                '-inputfile', self.in_test_dataset().path,
+                '-inputfile', self.in_testdata().path,
                 '-signaturesinfile', self.in_signatures().path,
-                '-datasetfile', self.out_sparse_test_dataset().path,
+                '-datasetfile', self.out_sparse_testdata().path,
                 '-signaturesoutfile', self.out_signatures().path,
                 '-silent'])
 
@@ -283,7 +283,7 @@ class CreateSparseTestDataset(sl.Task):
 class TrainSVMModel(sl.Task):
 
     # INPUT TARGETS
-    in_train_dataset = None
+    in_traindata = None
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
@@ -294,12 +294,11 @@ class TrainSVMModel(sl.Task):
     svm_kernel_type = luigi.Parameter()
 
     # Whether to run svm-train or pisvm-train when training
-    train_dataset_gzipped = luigi.BooleanParameter(default=True)
     parallel_train = luigi.BooleanParameter()
 
     # DEFINE OUTPUTS
     def out_svm_model(self):
-        return sl.TargetInfo(self, self.in_train_dataset().path + '.g{g}_c{c}_s{s}_t{t}.svm'.format(
+        return sl.TargetInfo(self, self.in_traindata().path + '.g{g}_c{c}_s{s}_t{t}.svm'.format(
             g = self.svm_gamma.replace('.', 'p'),
             c = self.svm_cost,
             s = self.svm_type,
@@ -344,21 +343,8 @@ class TrainSVMModel(sl.Task):
                 raise Exception('Trainingsize {s} is not "rest" nor a valid positive number!'.format(s = trainsize_num))
 
         # Set some file paths
-        trainfile = self.in_train_dataset().path
-        trainfile_gunzipped = trainfile + '.ungzipped'
+        trainfile = self.in_traindata().path
         svmmodel_file = self.out_svm_model().path
-
-        if self.train_dataset_gzipped:
-            # Unpack the train data file
-            self.ex_local(['gunzip', '-c',
-                     trainfile,
-                     '>',
-                     trainfile_gunzipped])
-
-            # We want to use the same variable for both the gzipped
-            # and ungzipped case, so that the svm-train command will
-            # be the same for both, below
-            trainfile = trainfile_gunzipped
 
         # Select train command based on parameter
         if self.parallel_train:
@@ -370,7 +356,7 @@ class TrainSVMModel(sl.Task):
                     '-g', self.svm_gamma,
                     '-c', self.svm_cost,
                     '-m', '2000',
-                    trainfile,
+                    self.in_traindata().path,
                     svmmodel_file,
                     '>',
                     '/dev/null']) # Needed, since there is no quiet mode in pisvm :/
@@ -382,15 +368,14 @@ class TrainSVMModel(sl.Task):
                 '-c', self.svm_cost,
                 '-m', '2000',
                 '-q', # quiet mode
-                trainfile,
+                self.in_traindata().path,
                 svmmodel_file])
 
 # ====================================================================================================
 
 class TrainLinearModel(sl.SlurmTask):
-
     # INPUT TARGETS
-    in_train_dataset = None
+    in_traindata = None
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
@@ -403,74 +388,44 @@ class TrainLinearModel(sl.SlurmTask):
     #lin_folds = luigi.Parameter()
 
     # Whether to run normal or distributed lib linear
-    train_dataset_gzipped = luigi.BooleanParameter(default=True)
     #parallel_train = luigi.BooleanParameter()
 
     # DEFINE OUTPUTS
-    def out_lin_model(self):
-        return sl.TargetInfo(self, self.in_train_dataset().path + '.s{s}_c{c}.linmodel'.format(
+    def out_linmodel(self):
+        return sl.TargetInfo(self, self.in_traindata().path + '.s{s}_c{c}.linmdl'.format(
             s = self.lin_type,
             c = self.lin_cost))
 
     # WHAT THE TASK DOES
     def run(self):
-        # Set some file paths
-        trainfile = self.in_train_dataset().path
-        trainfile_gunzipped = trainfile + '.ungzipped'
-        self.out_lin_model().path
-
-        if self.train_dataset_gzipped:
-            # Unpack the train data file
-            self.ex_local(['gunzip', '-c',
-                     trainfile,
-                     '>',
-                     trainfile_gunzipped])
-
-            # We want to use the same variable for both the gzipped
-            # and ungzipped case, so that the lin-train command will
-            # be the same for both, below
-            trainfile = trainfile_gunzipped
-
         #self.ex(['distlin-train',
         self.ex(['lin-train',
             '-s', self.lin_type,
             '-c', self.lin_cost,
             '-q', # quiet mode
-            trainfile,
-            self.out_lin_model().path])
+            self.in_traindata().path,
+            self.out_linmodel().path])
 
 # ====================================================================================================
 
 class PredictSVMModel(sl.Task):
     # INPUT TARGETS
     in_svmmodel = None
-    in_sparse_test_dataset = None
+    in_sparse_testdata = None
     replicate_id = luigi.Parameter()
 
     # TASK PARAMETERS
-    test_dataset_gzipped = luigi.BooleanParameter(default=True)
+    testdata_gzipped = luigi.BooleanParameter(default=True)
 
     # DEFINE OUTPUTS
     def out_prediction(self):
-        return sl.TargetInfo(self, self.in_svmmodel().path + '.prediction')
+        return sl.TargetInfo(self, self.in_svmmodel().path + '.pred')
 
     # WHAT THE TASK DOES
     def run(self):
-        if self.test_dataset_gzipped:
-            # Set some file paths
-            test_dataset_path = self.in_sparse_test_dataset().path + '.ungzipped'
-
-            # Un-gzip the csr file
-            self.ex_local(['gunzip -c',
-                     self.in_sparse_test_dataset().path,
-                     '>',
-                     test_dataset_path])
-        else:
-            test_dataset_path = self.in_sparse_test_dataset().path
-
         # Run prediction
-        self.ex(['/proj/b2013262/nobackup/src/libsvm-3.17/svm-predict',
-                test_dataset_path,
+        self.ex(['svm-predict',
+                self.in_sparse_testdata().path,
                 self.in_svmmodel().path,
                 self.out_prediction().path])
 
@@ -479,36 +434,22 @@ class PredictSVMModel(sl.Task):
 class PredictLinearModel(sl.Task):
     # INPUT TARGETS
     in_linmodel = None
-    in_sparse_test_dataset = None
+    in_sparse_testdata = None
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
-    test_dataset_gzipped = luigi.BooleanParameter(default=True)
 
     # DEFINE OUTPUTS
     def out_prediction(self):
-        return sl.TargetInfo(self, self.in_linmodel().path + '.prediction')
+        return sl.TargetInfo(self, self.in_linmodel().path + '.pred')
 
     # WHAT THE TASK DOES
     def run(self):
-        if self.test_dataset_gzipped:
-            # Set some file paths
-            test_dataset_path = self.in_sparse_test_dataset().path + '.ungzipped'
-
-            # Un-gzip the csr file
-            self.ex_local(['gunzip', '-c',
-                     self.in_sparse_test_dataset().path,
-                     '>',
-                     test_dataset_path])
-        else:
-            test_dataset_path = self.in_sparse_test_dataset().path
-
-        # Run prediction
         #self.ex(['/proj/b2013262/nobackup/opt/mpi-liblinear-1.94/predict',
-        self.ex(['/proj/b2013262/nobackup/workflows/workflows/bin/lin-predict',
-                test_dataset_path,
-                self.in_linmodel().path,
-                self.out_prediction().path])
+        self.ex(['lin-predict',
+            self.in_sparse_testdata().path,
+            self.in_linmodel().path,
+            self.out_prediction().path])
 
 # ====================================================================================================
 
@@ -516,25 +457,25 @@ class AssessSVMRegression(sl.Task):
 
     # INPUT TARGETS
     in_svmmodel = None
-    in_sparse_test_dataset = None
+    in_sparse_testdata = None
     in_prediction = None
 
     # TASK PARAMETERS
     replicate_id = luigi.Parameter()
-    test_dataset_gzipped = luigi.BooleanParameter(default=True)
+    testdata_gzipped = luigi.BooleanParameter(default=True)
 
     # DEFINE OUTPUTS
     def out_plot(self):
-        return sl.TargetInfo(self, self.in_svmmodel().path + '.prediction.png')
+        return sl.TargetInfo(self, self.in_svmmodel().path + '.pred.png')
     def out_log(self):
-        return sl.TargetInfo(self, self.in_svmmodel().path + '.prediction.log')
+        return sl.TargetInfo(self, self.in_svmmodel().path + '.pred.log')
 
     # WHAT THE TASK DOES
     def run(self):
         # Run Assess
         self.ex(['/usr/bin/xvfb-run /sw/apps/R/x86_64/3.0.2/bin/Rscript assess/assess.r',
                 '-p', self.in_prediction().path,
-                '-t', self.in_sparse_test_dataset().path])
+                '-t', self.in_sparse_testdata().path])
 
 # ====================================================================================================
 
@@ -545,7 +486,7 @@ class CreateReport(sl.Task):
     in_sample_traintest_log = None
     in_sparse_testdataset_log = None
     in_sparse_traindataset_log = None
-    in_train_dataset = None
+    in_traindata = None
     in_svmmodel = None
     in_assess_svm_log = None
     in_assess_svm_plot = None
@@ -764,7 +705,7 @@ class CreateReport(sl.Task):
 class CreateElasticNetModel(sl.Task):
 
     # INPUT TARGETS
-    in_train_dataset = None
+    in_traindata = None
 
     # TASK PARAMETERS
     l1_value = luigi.Parameter()
@@ -773,22 +714,22 @@ class CreateElasticNetModel(sl.Task):
 
     # DEFINE OUTPUTS
     def out_model(self):
-        return sl.TargetInfo(self, self.in_train_dataset().path + '.model_{l}_{y}'.format(
+        return sl.TargetInfo(self, self.in_traindata().path + '.model_{l}_{y}'.format(
             l=self.get_value('l1_value'),
             y=self.get_value('lambda_value')
         ))
 
     def run(self):
         self.ex([self.java_path, '-jar', 'jars/CreateElasticNetModel.jar',
-                '-inputfile', self.in_train_dataset().path,
+                '-inputfile', self.in_traindata().path,
                 '-l1ratio', str(self.get_value('l1_value')),
                 '-lambda', str(self.get_value('lambda_value')),
                 '-outputfile', self.out_model().path,
                 '-silent'])
 
         #self.ex_local(['mv',
-        #         self.in_train_dataset().path + '.model',
-        #         self.in_train_dataset().path + '.model_{l}_{y}'.format(l=self.get_value('l1_value'),y=self.get_value('lambda_value'))])
+        #         self.in_traindata().path + '.model',
+        #         self.in_traindata().path + '.model_{l}_{y}'.format(l=self.get_value('l1_value'),y=self.get_value('lambda_value'))])
 
 
 # ====================================================================================================
@@ -797,7 +738,7 @@ class PredictElasticNetModel(sl.Task):
 
     # INPUT TARGETS
     in_elasticnet_model = None
-    in_test_dataset = None
+    in_testdata = None
 
     # TASK PARAMETERS
     l1_value = luigi.Parameter()
@@ -805,12 +746,12 @@ class PredictElasticNetModel(sl.Task):
     java_path = luigi.Parameter()
 
     def out_prediction(self):
-        return sl.TargetInfo(self, self.in_elasticnet_model().path + '.prediction')
+        return sl.TargetInfo(self, self.in_elasticnet_model().path + '.pred')
 
     def run(self):
         self.ex([self.java_path, '-jar', 'jars/PredictElasticNetModel.jar',
                 '-modelfile', self.in_elasticnet_model().path,
-                '-testset', self.in_test_dataset().path,
+                '-testset', self.in_testdata().path,
                 '-outputfile', self.out_prediction().path,
                 '-silent'])
 
@@ -818,7 +759,7 @@ class PredictElasticNetModel(sl.Task):
 
 class EvaluateElasticNetPrediction(sl.Task):
      # INPUT TARGETS
-     in_test_dataset = None
+     in_testdata = None
      in_prediction = None
 
      # TASK PARAMETERS
@@ -831,7 +772,7 @@ class EvaluateElasticNetPrediction(sl.Task):
 
      # WHAT THE TASK DOES
      def run(self):
-         with gzip.open(self.in_test_dataset().path) as testset_file, self.in_prediction().open() as prediction_file:
+         with gzip.open(self.in_testdata().path) as testset_file, self.in_prediction().open() as prediction_file:
              original_vals = [float(line.split(' ')[0]) for line in testset_file]
              predicted_vals = [float(val.strip('\n')) for val in prediction_file]
          squared = [(pred-orig)**2 for orig, pred in zip(original_vals, predicted_vals)]
@@ -847,8 +788,8 @@ class EvaluateElasticNetPrediction(sl.Task):
 class ElasticNetGridSearch(sl.Task):
 
     # INPUT TARGETS
-    in_train_dataset = None
-    in_test_dataset = None
+    in_traindata = None
+    in_testdata = None
     replicate_id = luigi.Parameter()
 
     # TASK PARAMETERS
@@ -859,7 +800,7 @@ class ElasticNetGridSearch(sl.Task):
         for l1 in ast.literal_eval(self.l1_steps):
             for lambda_value in ast.literal_eval(self.lambda_steps):
                 create_elasticnet_model = CreateElasticNetModel(
-                        train_dataset_target = self.train_dataset_target,
+                        traindata_target = self.traindata_target,
                         l1_value = l1,
                         lambda_value = lambda_value,
                         dataset_name = self.dataset_name,
@@ -871,14 +812,14 @@ class ElasticNetGridSearch(sl.Task):
                         elasticnet_model_target =
                             { 'upstream' : { 'task' : create_elasticnet_model,
                                              'port' : 'model' } },
-                        test_dataset_target = self.test_dataset_target,
+                        testdata_target = self.testdata_target,
                         dataset_name = self.dataset_name,
                         replicate_id = self.replicate_id,
                         accounted_project = self.accounted_project )
                 eval_elasticnet_prediction = EvaluateElasticNetPrediction(
                         l1_value = l1,
                         lambda_value = lambda_value,
-                        test_dataset_target = self.test_dataset_target,
+                        testdata_target = self.testdata_target,
                         prediction_target =
                             { 'upstream' : { 'task' : predict_elasticnet_model,
                                              'port' : 'prediction' } },
@@ -923,7 +864,7 @@ class BuildP2Sites(sl.Task):
 
     # INPUT TARGETS
     in_signatures = None
-    in_sparse_train_dataset = None
+    in_sparse_traindata = None
     in_svmmodel = None
     in_assess_svm_log = None
 
@@ -1025,11 +966,11 @@ class BuildP2Sites(sl.Task):
                  self.in_signatures().path,
                  signatures_file_abspath])
 
-        train_dataset_file = model_folder + '/sparse_train_datset.csr'
-        train_dataset_file_abspath = model_folder_abspath + '/sparse_train_datset.csr'
+        traindata_file = model_folder + '/sparse_train_datset.csr'
+        traindata_file_abspath = model_folder_abspath + '/sparse_train_datset.csr'
         self.ex_local(['cp',
-                 self.in_sparse_train_dataset().path,
-                 train_dataset_file_abspath])
+                 self.in_sparse_traindata().path,
+                 traindata_file_abspath])
 
         svmmodel_file = model_folder + '/model.svm'
         svmmodel_file_abspath = model_folder_abspath + '/model.svm'
@@ -1404,12 +1345,12 @@ class BCutSplitTrainTest(sl.Task):
     in_bcut_preprocessed = None
 
     # OUTPORTS
-    def out_train_dataset(self):
+    def out_traindata(self):
         return sl.TargetInfo(self, self.in_bcut_preprocessed().path + '.{tr}_{te}_bcut_train'.format(
                         tr=str(self.train_size),
                         te=str(self.test_size)
                 ))
-    def out_test_dataset(self):
+    def out_testdata(self):
         return sl.TargetInfo(self, self.in_bcut_preprocessed().path + '.{tr}_{te}_bcut_test'.format(
                         tr=str(self.train_size),
                         te=str(self.test_size)
@@ -1418,8 +1359,8 @@ class BCutSplitTrainTest(sl.Task):
     def run(self):
         self.ex(['/usr/bin/xvfb-run /sw/apps/R/x86_64/3.0.2/bin/Rscript r/pick_bcut.r',
                 '--input_file=%s' % self.in_bcut_preprocessed().path,
-                '--training_file=%s' % self.out_train_dataset().path,
-                '--test_file=%s' % self.out_test_dataset().path,
+                '--training_file=%s' % self.out_traindata().path,
+                '--test_file=%s' % self.out_testdata().path,
                 '--training_size=%s' % self.train_size,
                 '--test_size=%s' % self.test_size])
 
