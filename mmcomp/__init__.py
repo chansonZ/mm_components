@@ -6,4 +6,5 @@ GenerateSignaturesFilterSubstances = components.GenerateSignaturesFilterSubstanc
 SampleTrainAndTest = components.SampleTrainAndTest
 CreateSparseTrainDataset = components.CreateSparseTrainDataset
 TrainLinearModel = components.TrainLinearModel
+PredictLinearModel = components.PredictLinearModel
 UnGzipFile = components.UnGzipFile
