@@ -7,4 +7,5 @@ SampleTrainAndTest = components.SampleTrainAndTest
 CreateSparseTrainDataset = components.CreateSparseTrainDataset
 TrainLinearModel = components.TrainLinearModel
 PredictLinearModel = components.PredictLinearModel
+AssessLinearRMSD = components.AssessLinearRMSD
 UnGzipFile = components.UnGzipFile

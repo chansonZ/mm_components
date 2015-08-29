@@ -453,6 +453,34 @@ class PredictLinearModel(sl.Task):
 
 # ====================================================================================================
 
+class AssessLinearRMSD(sl.Task): # TODO: Check with Jonalv whether RMSD is what we want to do?!!
+    # FIXME: IMPLEMENT!
+    # INPUT TARGETS
+    in_linmodel = None
+    in_sparse_testdata = None
+    in_prediction = None
+
+    # DEFINE OUTPUTS
+    def out_assessment(self):
+        return sl.TargetInfo(self, self.in_prediction().path + '.rmsd')
+
+    # WHAT THE TASK DOES
+    def run(self):
+        with self.in_sparse_testdata().open() as testfile:
+            with self.in_prediction().open() as predfile:
+                sqrds = []
+                for tline, pline in zip(testfile, predfile):
+                    test = float(tline.split(' ')[0])
+                    pred = float(pline)
+                    diff = pred-test
+                    sqrd = diff**2
+                    sqrds.append(sqrd)
+        rmsd = math.sqrt(sum(sqrds)/len(sqrds))
+        with self.out_assessment().open('w') as assessfile:
+            assessfile.write('%f\n' % rmsd)
+
+# ====================================================================================================
+
 class AssessSVMRegression(sl.Task):
 
     # INPUT TARGETS
