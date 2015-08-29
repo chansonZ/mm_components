@@ -8,4 +8,5 @@ CreateSparseTrainDataset = components.CreateSparseTrainDataset
 TrainLinearModel = components.TrainLinearModel
 PredictLinearModel = components.PredictLinearModel
 AssessLinearRMSD = components.AssessLinearRMSD
+CalcMean = components.CalcMean
 UnGzipFile = components.UnGzipFile

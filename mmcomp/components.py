@@ -481,6 +481,24 @@ class AssessLinearRMSD(sl.Task): # TODO: Check with Jonalv whether RMSD is what 
 
 # ====================================================================================================
 
+class CalcMean(sl.Task): # TODO: Check with Jonalv whether RMSD is what we want to do?!!
+
+    # Inputs
+    in_values = None
+
+    # output
+    def out_mean(self):
+        return sl.TargetInfo(self, self.in_values[0]().path + '.average')
+
+    def run(self):
+        vals = [float(invalfun().open().read()) for invalfun in self.in_values]
+        meanval = sum(vals)/len(vals)
+        with self.out_mean().open('w') as meanfile:
+            meanfile.write('%s\n' % meanval)
+
+
+# ====================================================================================================
+
 class AssessSVMRegression(sl.Task):
 
     # INPUT TARGETS
