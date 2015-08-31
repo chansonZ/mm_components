@@ -454,7 +454,6 @@ class PredictLinearModel(sl.Task):
 # ====================================================================================================
 
 class AssessLinearRMSD(sl.Task): # TODO: Check with Jonalv whether RMSD is what we want to do?!!
-    # FIXME: IMPLEMENT!
     # INPUT TARGETS
     in_linmodel = None
     in_sparse_testdata = None
@@ -468,14 +467,13 @@ class AssessLinearRMSD(sl.Task): # TODO: Check with Jonalv whether RMSD is what 
     def run(self):
         with self.in_sparse_testdata().open() as testfile:
             with self.in_prediction().open() as predfile:
-                sqrds = []
+                squared_diffs = []
                 for tline, pline in zip(testfile, predfile):
                     test = float(tline.split(' ')[0])
                     pred = float(pline)
-                    diff = pred-test
-                    sqrd = diff**2
-                    sqrds.append(sqrd)
-        rmsd = math.sqrt(sum(sqrds)/len(sqrds))
+                    squared_diff = (pred-test)**2
+                    squared_diffs.append(squared_diff)
+        rmsd = math.sqrt(sum(squared_diffs)/len(squared_diffs))
         with self.out_assessment().open('w') as assessfile:
             assessfile.write('%f\n' % rmsd)
 
