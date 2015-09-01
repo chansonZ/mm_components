@@ -1,12 +1,12 @@
 from mmcomp import components
-
-ExistingSmiles = components.ExistingSmiles
-CreateReplicateCopy = components.CreateReplicateCopy
-GenerateSignaturesFilterSubstances = components.GenerateSignaturesFilterSubstances
-SampleTrainAndTest = components.SampleTrainAndTest
-CreateSparseTrainDataset = components.CreateSparseTrainDataset
-TrainLinearModel = components.TrainLinearModel
-PredictLinearModel = components.PredictLinearModel
-AssessLinearRMSD = components.AssessLinearRMSD
-CalcMean = components.CalcMean
-UnGzipFile = components.UnGzipFile
+from mmcomp.components import ExistingSmiles
+from mmcomp.components import CreateReplicateCopy
+from mmcomp.components import GenerateSignaturesFilterSubstances
+from mmcomp.components import SampleTrainAndTest
+from mmcomp.components import CreateSparseTrainDataset
+from mmcomp.components import TrainLinearModel
+from mmcomp.components import PredictLinearModel
+from mmcomp.components import AssessLinearRMSD
+from mmcomp.components import UnGzipFile
+from mmcomp.components import CalcMean
+from mmcomp.components import SelectLowestRMSD
