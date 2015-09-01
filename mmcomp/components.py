@@ -494,6 +494,22 @@ class CalcMean(sl.Task): # TODO: Check with Jonalv whether RMSD is what we want 
         with self.out_mean().open('w') as meanfile:
             meanfile.write('%s\n' % meanval)
 
+# ====================================================================================================
+
+class SelectLowestRMSD(sl.Task):
+
+    # Inputs
+    in_values = None
+
+    # output
+    def out_lowest(self):
+        return sl.TargetInfo(self, self.in_values[0]().path + '.lowest')
+
+    def run(self):
+        vals = [float(invalfun().open().read()) for invalfun in self.in_values]
+        lowest = min(vals)
+        with self.out_lowest().open('w') as lowestfile:
+            lowestfile.write('%s\n' % lowest)
 
 # ====================================================================================================
 
