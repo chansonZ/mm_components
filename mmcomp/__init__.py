@@ -8,5 +8,5 @@ from mmcomp.components import TrainLinearModel
 from mmcomp.components import PredictLinearModel
 from mmcomp.components import AssessLinearRMSD
 from mmcomp.components import UnGzipFile
-from mmcomp.components import CalcMean
+from mmcomp.components import CalcAverageRMSDForCost
 from mmcomp.components import SelectLowestRMSD

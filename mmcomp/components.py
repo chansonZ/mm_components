@@ -454,6 +454,9 @@ class PredictLinearModel(sl.Task):
 # ====================================================================================================
 
 class AssessLinearRMSD(sl.Task): # TODO: Check with Jonalv whether RMSD is what we want to do?!!
+    # Parameters
+    lin_cost = luigi.Parameter()
+
     # INPUT TARGETS
     in_linmodel = None
     in_sparse_testdata = None
@@ -474,30 +477,39 @@ class AssessLinearRMSD(sl.Task): # TODO: Check with Jonalv whether RMSD is what 
                     squared_diff = (pred-test)**2
                     squared_diffs.append(squared_diff)
         rmsd = math.sqrt(sum(squared_diffs)/len(squared_diffs))
+        rmsd_records = {'rmsd': rmsd,
+                        'cost': self.lin_cost}
         with self.out_assessment().open('w') as assessfile:
-            assessfile.write('%f\n' % rmsd)
+            sl.util.dict_to_recordfile(assessfile, rmsd_records)
 
 # ====================================================================================================
 
-class CalcMean(sl.Task): # TODO: Check with Jonalv whether RMSD is what we want to do?!!
+class CalcAverageRMSDForCost(sl.Task): # TODO: Check with Jonalv whether RMSD is what we want to do?!!
+    # Parameters
+    lin_cost = luigi.Parameter()
 
     # Inputs
-    in_values = None
+    in_assessments = None
 
     # output
-    def out_mean(self):
-        return sl.TargetInfo(self, self.in_values[0]().path + '.average')
+    def out_rmsdavg(self):
+        return sl.TargetInfo(self, self.in_assessments[0]().path + '.average')
 
     def run(self):
-        vals = [float(invalfun().open().read()) for invalfun in self.in_values]
-        meanval = sum(vals)/len(vals)
-        with self.out_mean().open('w') as meanfile:
-            meanfile.write('%s\n' % meanval)
+        vals = []
+        for invalfun in self.in_assessments:
+            infile = invalfun().open()
+            records = sl.util.recordfile_to_dict(infile)
+            vals.append(float(records['rmsd']))
+        rmsdavg = sum(vals)/len(vals)
+        rmsdavg_records = {'rmsd_avg': rmsdavg,
+                           'cost': self.lin_cost}
+        with self.out_rmsdavg().open('w') as outfile:
+            sl.util.dict_to_recordfile(outfile, rmsdavg_records)
 
 # ====================================================================================================
 
 class SelectLowestRMSD(sl.Task):
-
     # Inputs
     in_values = None
 
@@ -506,10 +518,19 @@ class SelectLowestRMSD(sl.Task):
         return sl.TargetInfo(self, self.in_values[0]().path + '.lowest')
 
     def run(self):
-        vals = [float(invalfun().open().read()) for invalfun in self.in_values]
-        lowest = min(vals)
+        vals = []
+        for invalfun in self.in_values:
+            infile = invalfun().open()
+            records = sl.util.recordfile_to_dict(infile)
+            vals.append(records)
+
+        lowest_rmsd = float(min(vals, key=lambda v: float(v['rmsd_avg']))['rmsd_avg'])
+        vals_lowest_rmsd = [v for v in vals if float(v['rmsd_avg']) <= lowest_rmsd]
+        val_lowest_rmsd_cost = min(vals_lowest_rmsd, key=lambda v: int(v['cost']))
+        lowestrec = {'lowest_rmsd_avg': val_lowest_rmsd_cost['rmsd_avg'],
+                     'lowest_cost': val_lowest_rmsd_cost['cost']}
         with self.out_lowest().open('w') as lowestfile:
-            lowestfile.write('%s\n' % lowest)
+            sl.util.dict_to_recordfile(lowestfile, lowestrec)
 
 # ====================================================================================================
 
