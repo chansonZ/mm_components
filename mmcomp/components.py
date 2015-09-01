@@ -1488,3 +1488,68 @@ class BCutSplitTrainTest(sl.Task):
         -h, --help
                 Show this help message and exit
         '''
+
+# ====================================================================================================
+
+class CreateFolds(sl.SlurmTask):
+
+    # TASK PARAMETERS
+    folds_count = luigi.IntParameter()
+    fold_index = luigi.IntParameter()
+    seed = luigi.Parameter()
+
+    # TARGETS
+    in_dataset = None
+    def out_traindata(self):
+        return sl.TargetInfo(self, self.in_dataset().path + '.fld{0:02}_trn'.format(self.fold_index))
+
+    def out_testdata(self):
+        if self.in_dataset is None:
+            raise Exception("in_dataset is None")
+        elif self.in_dataset() is None:
+            raise Exception("in_dataset returns None")
+        else:
+            return sl.TargetInfo(self, self.in_dataset().path + '.fld{0:02}_tst'.format(self.fold_index))
+
+    # CONVENIENCE METHODS
+    def count_lines(self, filename):
+        stat, out, err = self.ex_local('wc -l %s' % filename)
+        return int(out.split(' ')[0])
+
+    def remove_dict_key(self, orig_dict, key):
+        new_dict = dict(orig_dict)
+        del new_dict[key]
+        return new_dict
+
+    def pick_lines(self, dataset, line_nos):
+        return [line for i, line in enumerate(dataset) if i in line_nos]
+
+    def run(self):
+        linecnt = self.count_lines(self.in_dataset().path)
+        line_nos = [i for i in xrange(linecnt)]
+        random.shuffle(line_nos, lambda: float(self.seed))
+
+        splits_as_linenos = {}
+
+        set_size = len(line_nos) // int(self.folds_count)
+
+        # Split into splits, in terms of line numbers
+        for i in xrange(int(self.folds_count)):
+            splits_as_linenos[i] = line_nos[i * set_size : (i+1) * set_size]
+
+        # Write test file
+        test_linenos = splits_as_linenos[self.fold_index]
+        with self.in_dataset().open() as infile, self.out_testdata().open('w') as testfile:
+            for lineno, line in enumerate(infile):
+                if lineno in test_linenos:
+                    testfile.write(line)
+
+        # Write train file
+        train_splits_linenos = self.remove_dict_key(splits_as_linenos, self.fold_index)
+        train_linenos = []
+        for k, v in train_splits_linenos.iteritems():
+            train_linenos.extend(v)
+        with self.in_dataset().open() as infile, self.out_traindata().open('w') as trainfile:
+            for lineno, line in enumerate(infile):
+                if lineno in train_linenos:
+                    trainfile.write(line)

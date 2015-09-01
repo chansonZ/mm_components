@@ -10,3 +10,4 @@ from mmcomp.components import AssessLinearRMSD
 from mmcomp.components import UnGzipFile
 from mmcomp.components import CalcAverageRMSDForCost
 from mmcomp.components import SelectLowestRMSD
+from mmcomp.components import CreateFolds
