@@ -230,7 +230,7 @@ class CreateSparseTrainDataset(sl.SlurmTask):
     # INPUT TARGETS
     in_traindata = None
 
-    def out_sparsetraindata(self):
+    def out_sparse_traindata(self):
         return sl.TargetInfo(self, self.in_traindata().path + '.csr')
 
     def out_signatures(self):
@@ -243,7 +243,7 @@ class CreateSparseTrainDataset(sl.SlurmTask):
     def run(self):
         self.ex(['runjar', 'CreateSparseDataset',
                 '-inputfile', self.in_traindata().path,
-                '-datasetfile', self.out_sparsetraindata().path,
+                '-datasetfile', self.out_sparse_traindata().path,
                 '-signaturesoutfile', self.out_signatures().path,
                 '-silent'])
 
@@ -565,8 +565,8 @@ class CreateReport(sl.Task):
     # INPUT TARGETS
     in_signatures = None
     in_sample_traintest_log = None
-    in_sparse_testdataset_log = None
-    in_sparse_traindataset_log = None
+    in_sparse_testdata_log = None
+    in_sparse_traindata_log = None
     in_traindata = None
     in_svmmodel = None
     in_assess_svm_log = None
@@ -603,8 +603,8 @@ class CreateReport(sl.Task):
         # Get hand on some log files that we need to create the HTML report
         log_files = {}
         log_files['Sample_Train_and_Test'] = self.in_sample_traintest_log().path
-        log_files['Create_Sparse_Test_Dataset'] = self.in_sparse_testdataset_log().path
-        log_files['Create_Sparse_Train_Dataset'] = self.in_sparse_traindataset_log().path
+        log_files['Create_Sparse_Test_Dataset'] = self.in_sparse_testdata_log().path
+        log_files['Create_Sparse_Train_Dataset'] = self.in_sparse_traindata_log().path
         log_files['Predict_SVM'] = self.in_assess_svm_log().path
 
         for name, path in log_files.iteritems():
@@ -624,8 +624,8 @@ class CreateReport(sl.Task):
     def get_html_report_content(self):
         log_files = {}
         log_files['sample_train_and_test'] = self.in_sample_traintest_log().path
-        log_files['create_sparse_test_dataset'] = self.in_sparse_testdataset_log().path
-        log_files['create_sparse_train_dataset'] = self.in_sparse_traindataset_log().path
+        log_files['create_sparse_test_dataset'] = self.in_sparse_testdata_log().path
+        log_files['create_sparse_train_dataset'] = self.in_sparse_traindata_log().path
         log_files['predict_svm'] = self.in_assess_svm_log().path
 
         # Initialize an empty dict where to store information to show in the report
