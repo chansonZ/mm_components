@@ -271,7 +271,7 @@ class CreateSparseTestDataset(sl.Task):
 
     # WHAT THE TASK DOES
     def run(self):
-        self.ex([self.java_path, '-jar jars/CreateSparseDataset.jar',
+        self.ex(['runjar', 'CreateSparseDataset',
                 '-inputfile', self.in_testdata().path,
                 '-signaturesinfile', self.in_signatures().path,
                 '-datasetfile', self.out_sparse_testdata().path,
@@ -405,6 +405,7 @@ class TrainLinearModel(sl.SlurmTask):
             '-q', # quiet mode
             self.in_traindata().path,
             self.out_linmodel().path])
+        time.sleep(10)
 
 # ====================================================================================================
 
@@ -446,6 +447,7 @@ class PredictLinearModel(sl.Task):
     # WHAT THE TASK DOES
     def run(self):
         #self.ex(['/proj/b2013262/nobackup/opt/mpi-liblinear-1.94/predict',
+        log.info('LINMODELPATH:%s' % self.in_linmodel().path)
         self.ex(['lin-predict',
             self.in_sparse_testdata().path,
             self.in_linmodel().path,
@@ -801,7 +803,7 @@ class CreateElasticNetModel(sl.Task):
         ))
 
     def run(self):
-        self.ex([self.java_path, '-jar', 'jars/CreateElasticNetModel.jar',
+        self.ex(['runjar', 'CreateElasticNetModel',
                 '-inputfile', self.in_traindata().path,
                 '-l1ratio', str(self.get_value('l1_value')),
                 '-lambda', str(self.get_value('lambda_value')),
@@ -830,7 +832,7 @@ class PredictElasticNetModel(sl.Task):
         return sl.TargetInfo(self, self.in_elasticnet_model().path + '.pred')
 
     def run(self):
-        self.ex([self.java_path, '-jar', 'jars/PredictElasticNetModel.jar',
+        self.ex(['runjar', 'PredictElasticNetModel',
                 '-modelfile', self.in_elasticnet_model().path,
                 '-testset', self.in_testdata().path,
                 '-outputfile', self.out_prediction().path,
@@ -1106,8 +1108,7 @@ class BuildP2Sites(sl.Task):
 
         # Process Endpoint
         self.ex_local(['cd', temp_folder, ';',
-                self.java_path, '-jar',
-                '/proj/b2013262/nobackup/workflows/workflows/jars/bnd-2.3.0.jar',
+                'runjar', 'bnd-2.3.0',
                 'endpoint_bundle.bnd'])
 
 
@@ -1134,8 +1135,7 @@ class BuildP2Sites(sl.Task):
 
         # Process
         self.ex_local(['cd', temp_folder, ';',
-                 self.java_path, '-jar',
-                 '/proj/b2013262/nobackup/workflows/workflows/jars/bnd-2.3.0.jar',
+                 'runjar', 'bnd-2.3.0',
                  'plugin_bundle.bnd'])
 
         # Create feature file
@@ -1334,7 +1334,7 @@ class GenerateFingerprint(sl.Task):
         return sl.TargetInfo(self, self.in_dataset().path + '.' + self.fingerprint_type + '.csr')
 
     def run(self):
-        self.ex([self.java_path, '-jar jars/FingerprintsGenerator.jar',
+        self.ex(['runjar', 'FingerprintsGenerator',
                 '-fp', self.fingerprint_type,
                 '-inputfile', self.in_dataset().path,
                 '-parser', '1',
@@ -1409,7 +1409,7 @@ class BCutPreprocess(sl.Task):
         return sl.TargetInfo(self, self.in_signatures().path + '.bcut_preproc.log')
 
     def run(self):
-        self.ex([self.java_path, '-cp ../../lib/cdk/cdk-1.4.19.jar:jars/bcut.jar bcut',
+        self.ex(['runbcut',
                 self.in_signatures().path,
                 self.out_bcut_preprocessed().path])
 
