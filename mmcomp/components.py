@@ -207,7 +207,7 @@ class SampleTrainAndTest(sl.SlurmTask):
                      '-testsize', self.test_size,
                      '-trainingsize', self.train_size,
                      '-silent']
-        if self.seed != None:
+        if self.seed is not None and self.seed != 'None':
             cmd.extend(['-seed', self.seed])
 
         self.ex(cmd)
