@@ -409,7 +409,6 @@ class TrainLinearModel(sl.SlurmTask):
             '-q', # quiet mode
             self.in_traindata().path,
             self.out_linmodel().path])
-        time.sleep(10)
 
 # ====================================================================================================
 
