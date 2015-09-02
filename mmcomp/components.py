@@ -449,8 +449,6 @@ class PredictLinearModel(sl.Task):
 
     # WHAT THE TASK DOES
     def run(self):
-        #self.ex(['/proj/b2013262/nobackup/opt/mpi-liblinear-1.94/predict',
-        log.info('LINMODELPATH:%s' % self.in_linmodel().path)
         self.ex(['lin-predict',
             self.in_sparse_testdata().path,
             self.in_linmodel().path,
