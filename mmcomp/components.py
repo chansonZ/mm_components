@@ -2,7 +2,7 @@ import ast
 import commands
 import csv
 import gzip
-import logging as log
+import logging
 import luigi
 import math
 import os
@@ -16,6 +16,10 @@ import time
 import datetime
 import sciluigi as sl
 from ConfigParser import ConfigParser
+
+# ====================================================================================================
+
+log = logging.getLogger('sciluigi-predict')
 
 # ====================================================================================================
 
