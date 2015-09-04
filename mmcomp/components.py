@@ -59,7 +59,6 @@ class ExistingSmiles(sl.ExternalTask):
 
     # PARAMETERS
     dataset_name = luigi.Parameter()
-    replicate_id = luigi.Parameter()
 
     # TARGETS
     def out_smiles(self):
@@ -108,7 +107,6 @@ class Concatenate2Files(sl.Task):
 class GenerateSignaturesFilterSubstances(sl.SlurmTask):
 
     # TASK PARAMETERS
-    replicate_id = luigi.Parameter()
     min_height = luigi.IntParameter()
     max_height = luigi.IntParameter()
 
