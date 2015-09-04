@@ -130,7 +130,7 @@ class GenerateSignaturesFilterSubstances(sl.SlurmTask):
 
 # ====================================================================================================
 
-class UnGzipFile(sl.Task):
+class UnGzipFile(sl.SlurmTask):
     # TARGETS
     in_gzipped = None
 
