@@ -1494,14 +1494,14 @@ class CountLines(sl.SlurmTask):
     in_file = None
 
     def out_linecount(self):
-        return luigi.LocalTarget(self, self.in_file().path + '.linecnt')
+        return sl.TargetInfo(self, self.in_file().path + '.linecnt')
 
-    def run(self, filename):
+    def run(self):
         with self.in_file().open() as infile:
             with self.out_linecount().open('w') as outfile:
                 stat, out, err = self.ex_local('wc -l %s' % self.in_file().path)
                 linecnt = int(out.split(' ')[0])
-                outfile.write(linecnt)
+                outfile.write(str(linecnt))
 
 # ====================================================================================================
 
