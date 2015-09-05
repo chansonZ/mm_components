@@ -1514,6 +1514,7 @@ class CreateFolds(sl.SlurmTask):
 
     # TARGETS
     in_dataset = None
+    in_linecount = None
     def out_traindata(self):
         return sl.TargetInfo(self, self.in_dataset().path + '.fld{0:02}_trn'.format(self.fold_index))
 
@@ -1525,11 +1526,6 @@ class CreateFolds(sl.SlurmTask):
         else:
             return sl.TargetInfo(self, self.in_dataset().path + '.fld{0:02}_tst'.format(self.fold_index))
 
-    # CONVENIENCE METHODS
-    def count_lines(self, filename):
-        stat, out, err = self.ex_local('wc -l %s' % filename)
-        return int(out.split(' ')[0])
-
     def remove_dict_key(self, orig_dict, key):
         new_dict = dict(orig_dict)
         del new_dict[key]
@@ -1539,7 +1535,8 @@ class CreateFolds(sl.SlurmTask):
         return [line for i, line in enumerate(dataset) if i in line_nos]
 
     def run(self):
-        linecnt = self.count_lines(self.in_dataset().path)
+        with self.in_linecount().open() as linecntfile:
+            linecnt = int(linecntfile.read())
         line_nos = [i for i in xrange(linecnt)]
         random.shuffle(line_nos, lambda: float(self.seed))
 
