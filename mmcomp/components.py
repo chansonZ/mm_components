@@ -1505,62 +1505,77 @@ class CountLines(sl.SlurmTask):
 
 # ====================================================================================================
 
+class CreateRandomData(sl.SlurmTask):
+    size_mb = luigi.IntParameter()
+    replicate_id = luigi.Parameter()
+
+    in_basepath = None
+
+    def out_random(self):
+        return sl.TargetInfo(self, self.in_basepath().path + '.randombytes')
+
+    def run(self):
+        cmd =['dd',
+              'if=/dev/urandom',
+              'of=%s' % self.out_random().path,
+              'bs=1048576',
+              'count=%d' % self.size_mb]
+        self.ex(cmd)
+
+# ====================================================================================================
+
+class ShuffleLines(sl.SlurmTask):
+    in_file = None
+    in_randomdata = None
+
+    def out_shuffled(self):
+        return sl.TargetInfo(self, self.in_file().path + '.shuf')
+
+    def run(self):
+        #with self.in_file().open() as infile:
+        #    with self.out_shuffled().open('w') as outfile:
+        self.ex_local(['shuf',
+                       '--random-source=%s' % self.in_randomdata().path,
+                       self.in_file().path,
+                       '>',
+                       self.out_shuffled().path])
+
+# ====================================================================================================
+
 class CreateFolds(sl.SlurmTask):
 
     # TASK PARAMETERS
     folds_count = luigi.IntParameter()
     fold_index = luigi.IntParameter()
-    seed = luigi.Parameter()
 
     # TARGETS
     in_dataset = None
     in_linecount = None
-    def out_traindata(self):
-        return sl.TargetInfo(self, self.in_dataset().path + '.fld{0:02}_trn'.format(self.fold_index))
 
     def out_testdata(self):
-        if self.in_dataset is None:
-            raise Exception("in_dataset is None")
-        elif self.in_dataset() is None:
-            raise Exception("in_dataset returns None")
-        else:
-            return sl.TargetInfo(self, self.in_dataset().path + '.fld{0:02}_tst'.format(self.fold_index))
+        return sl.TargetInfo(self, self.in_dataset().path + '.fld{0:02}_tst'.format(self.fold_index))
 
-    def remove_dict_key(self, orig_dict, key):
-        new_dict = dict(orig_dict)
-        del new_dict[key]
-        return new_dict
-
-    def pick_lines(self, dataset, line_nos):
-        return [line for i, line in enumerate(dataset) if i in line_nos]
+    def out_traindata(self):
+        return sl.TargetInfo(self, self.in_dataset().path + '.fld{0:02}_trn'.format(self.fold_index))
 
     def run(self):
         with self.in_linecount().open() as linecntfile:
             linecnt = int(linecntfile.read())
-        line_nos = [i for i in xrange(linecnt)]
-        random.shuffle(line_nos, lambda: float(self.seed))
 
-        splits_as_linenos = {}
+        linesperfold = math.floor(linecnt / self.folds_count)
+        tst_start = int(self.fold_index * linesperfold)
+        tst_end = int((self.fold_index + 1) * linesperfold)
 
-        set_size = len(line_nos) // int(self.folds_count)
+        # CREATE TEST FOLD
+        self.ex(['awk',
+                 'NR >= %d && NR <= %d { print }' % (tst_start, tst_end),
+                 self.in_dataset().path,
+                 '>',
+                 self.out_testdata().path])
 
-        # Split into splits, in terms of line numbers
-        for i in xrange(int(self.folds_count)):
-            splits_as_linenos[i] = line_nos[i * set_size : (i+1) * set_size]
-
-        # Write test file
-        test_linenos = splits_as_linenos[self.fold_index]
-        with self.in_dataset().open() as infile, self.out_testdata().open('w') as testfile:
-            for lineno, line in enumerate(infile):
-                if lineno in test_linenos:
-                    testfile.write(line)
-
-        # Write train file
-        train_splits_linenos = self.remove_dict_key(splits_as_linenos, self.fold_index)
-        train_linenos = []
-        for k, v in train_splits_linenos.iteritems():
-            train_linenos.extend(v)
-        with self.in_dataset().open() as infile, self.out_traindata().open('w') as trainfile:
-            for lineno, line in enumerate(infile):
-                if lineno in train_linenos:
-                    trainfile.write(line)
+        # CREATE TRAIN FOLD
+        self.ex(['awk',
+                 'NR < %d && NR > %d { print }' % (tst_start, tst_end),
+                 self.in_dataset().path,
+                 '>',
+                 self.out_traindata().path])

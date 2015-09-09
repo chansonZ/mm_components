@@ -13,3 +13,5 @@ from mmcomp.components import SelectLowestRMSD
 from mmcomp.components import TrainLinearModel
 from mmcomp.components import UnGzipFile
 from mmcomp.components import CountLines
+from mmcomp.components import CreateRandomData
+from mmcomp.components import ShuffleLines
