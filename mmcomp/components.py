@@ -494,7 +494,7 @@ class CalcAverageRMSDForCost(sl.Task): # TODO: Check with Jonalv whether RMSD is
 
     # output
     def out_rmsdavg(self):
-        return sl.TargetInfo(self, self.in_assessments[0]().path + '.average')
+        return sl.TargetInfo(self, self.in_assessments[0]().path + '.avg')
 
     def run(self):
         vals = []
@@ -516,7 +516,7 @@ class SelectLowestRMSD(sl.Task):
 
     # output
     def out_lowest(self):
-        return sl.TargetInfo(self, self.in_values[0]().path + '.lowest')
+        return sl.TargetInfo(self, self.in_values[0]().path + '.min')
 
     def run(self):
         vals = []
