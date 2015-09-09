@@ -19,7 +19,7 @@ from ConfigParser import ConfigParser
 
 # ====================================================================================================
 
-log = logging.getLogger('sciluigi-predict')
+log = logging.getLogger('sciluigi-interface')
 
 # ====================================================================================================
 
