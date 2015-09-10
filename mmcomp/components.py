@@ -1562,9 +1562,9 @@ class CreateFolds(sl.SlurmTask):
         with self.in_linecount().open() as linecntfile:
             linecnt = int(linecntfile.read())
 
-        linesperfold = math.floor(linecnt / self.folds_count)
-        tst_start = int(self.fold_index * linesperfold)
-        tst_end = int((self.fold_index + 1) * linesperfold)
+        linesperfold = int(math.floor(linecnt / self.folds_count))
+        tst_start = self.fold_index * linesperfold
+        tst_end = (self.fold_index + 1) * linesperfold
 
         # CREATE TEST FOLD
         self.ex(['awk',
