@@ -1575,7 +1575,7 @@ class CreateFolds(sl.SlurmTask):
 
         # CREATE TRAIN FOLD
         self.ex(['awk',
-                 '"NR < %d && NR > %d { print }"' % (tst_start, tst_end),
+                 '"NR < %d || NR > %d { print }"' % (tst_start, tst_end),
                  self.in_dataset().path,
                  '>',
                  self.out_traindata().path])
