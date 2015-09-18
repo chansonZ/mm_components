@@ -1534,7 +1534,7 @@ class ShuffleLines(sl.SlurmTask):
     def run(self):
         #with self.in_file().open() as infile:
         #    with self.out_shuffled().open('w') as outfile:
-        self.ex_local(['shuf',
+        self.ex(['shuf',
                        '--random-source=%s' % self.in_randomdata().path,
                        self.in_file().path,
                        '>',
