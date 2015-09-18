@@ -516,7 +516,7 @@ class SelectLowestRMSD(sl.Task):
 
     # output
     def out_lowest(self):
-        return sl.TargetInfo(self, self.in_values[0]().path + '.min')
+        return sl.TargetInfo(self, self.in_values[0]().path + '.c' + '_'.join([v().task.lin_cost for v in self.in_values]) + '.min')
 
     def run(self):
         vals = []
