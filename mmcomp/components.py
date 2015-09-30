@@ -529,7 +529,7 @@ class SelectLowestRMSD(sl.Task):
 
         lowest_rmsd = float(min(vals, key=lambda v: float(v['rmsd_avg']))['rmsd_avg'])
         vals_lowest_rmsd = [v for v in vals if float(v['rmsd_avg']) <= lowest_rmsd]
-        val_lowest_rmsd_cost = min(vals_lowest_rmsd, key=lambda v: int(v['cost']))
+        val_lowest_rmsd_cost = min(vals_lowest_rmsd, key=lambda v: v['cost'])
         lowestrec = {'lowest_rmsd_avg': val_lowest_rmsd_cost['rmsd_avg'],
                      'lowest_cost': val_lowest_rmsd_cost['cost']}
         with self.out_lowest().open('w') as lowestfile:
