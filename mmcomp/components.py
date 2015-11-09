@@ -300,7 +300,7 @@ class TrainSVMModel(sl.Task):
     parallel_train = luigi.BooleanParameter()
 
     # DEFINE OUTPUTS
-    def out_svm_model(self):
+    def out_model(self):
         return sl.TargetInfo(self, self.in_traindata().path + '.g{g}_c{c}_s{s}_t{t}.svm'.format(
             g = self.svm_gamma.replace('.', 'p'),
             c = self.svm_cost,
@@ -347,7 +347,7 @@ class TrainSVMModel(sl.Task):
 
         # Set some file paths
         trainfile = self.in_traindata().path
-        svmmodel_file = self.out_svm_model().path
+        svmmodel_file = self.out_model().path
 
         # Select train command based on parameter
         if self.parallel_train:
@@ -394,7 +394,7 @@ class TrainLinearModel(sl.SlurmTask):
     #parallel_train = luigi.BooleanParameter()
 
     # DEFINE OUTPUTS
-    def out_linmodel(self):
+    def out_model(self):
         return sl.TargetInfo(self, self.in_traindata().path + '.s{s}_c{c}.linmdl'.format(
             s = self.lin_type,
             c = self.lin_cost))
@@ -407,7 +407,7 @@ class TrainLinearModel(sl.SlurmTask):
             '-c', self.lin_cost,
             '-q', # quiet mode
             self.in_traindata().path,
-            self.out_linmodel().path])
+            self.out_model().path])
 
 # ====================================================================================================
 
@@ -436,7 +436,7 @@ class PredictSVMModel(sl.Task):
 
 class PredictLinearModel(sl.Task):
     # INPUT TARGETS
-    in_linmodel = None
+    in_model = None
     in_sparse_testdata = None
 
     # TASK PARAMETERS
@@ -444,13 +444,13 @@ class PredictLinearModel(sl.Task):
 
     # DEFINE OUTPUTS
     def out_prediction(self):
-        return sl.TargetInfo(self, self.in_linmodel().path + '.pred')
+        return sl.TargetInfo(self, self.in_model().path + '.pred')
 
     # WHAT THE TASK DOES
     def run(self):
         self.ex(['lin-predict',
             self.in_sparse_testdata().path,
-            self.in_linmodel().path,
+            self.in_model().path,
             self.out_prediction().path])
 
 # ====================================================================================================
@@ -460,7 +460,7 @@ class AssessLinearRMSD(sl.Task): # TODO: Check with Jonalv whether RMSD is what 
     lin_cost = luigi.Parameter()
 
     # INPUT TARGETS
-    in_linmodel = None
+    in_model = None
     in_sparse_testdata = None
     in_prediction = None
 
