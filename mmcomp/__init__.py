@@ -8,9 +8,11 @@ from mmcomp.components import CreateReplicateCopy
 from mmcomp.components import ExistingSmiles
 from mmcomp.components import GenerateSignaturesFilterSubstances
 from mmcomp.components import PredictLinearModel
+from mmcomp.components import PredictSVMModel
 from mmcomp.components import SampleTrainAndTest
 from mmcomp.components import SelectLowestRMSD
 from mmcomp.components import TrainLinearModel
+from mmcomp.components import TrainSVMModel
 from mmcomp.components import UnGzipFile
 from mmcomp.components import CountLines
 from mmcomp.components import CreateRandomData
