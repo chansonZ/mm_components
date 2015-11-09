@@ -328,6 +328,9 @@ class TrainSVMModel(sl.Task):
             s = self.svm_type,
             t = self.svm_kernel_type))
 
+    def out_execution_time(self):
+        return sl.TargetInfo(self, self.out_model().path + '.extime')
+
     # WHAT THE TASK DOES
     def run(self):
         '''
@@ -372,7 +375,9 @@ class TrainSVMModel(sl.Task):
 
         # Select train command based on parameter
         if self.parallel_train:
-            self.ex(['pisvm-train',
+            self.ex(['/usr/bin/time -f%e -o',
+                    self.out_execution_time().path,
+                    'pisvm-train',
                     '-o', str(o),
                     '-q', str(q),
                     '-s', self.svm_type,
@@ -385,7 +390,9 @@ class TrainSVMModel(sl.Task):
                     '>',
                     '/dev/null']) # Needed, since there is no quiet mode in pisvm :/
         else:
-            self.ex(['svm-train',
+            self.ex(['/usr/bin/time', '-f%e', '-o',
+                self.out_execution_time().path,
+                'svm-train',
                 '-s', self.svm_type,
                 '-t', self.svm_kernel_type,
                 '-g', self.svm_gamma,
@@ -420,10 +427,15 @@ class TrainLinearModel(sl.SlurmTask):
             s = self.lin_type,
             c = self.lin_cost))
 
+    def out_execution_time(self):
+        return sl.TargetInfo(self, self.out_model().path + '.extime')
+
     # WHAT THE TASK DOES
     def run(self):
         #self.ex(['distlin-train',
-        self.ex(['lin-train',
+        self.ex(['/usr/bin/time', '-f%e', '-o',
+            self.out_execution_time().path,
+            'lin-train',
             '-s', self.lin_type,
             '-c', self.lin_cost,
             '-q', # quiet mode
