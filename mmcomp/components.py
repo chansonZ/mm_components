@@ -486,6 +486,43 @@ class AssessLinearRMSD(sl.Task): # TODO: Check with Jonalv whether RMSD is what 
 
 # ====================================================================================================
 
+class AssessSVMRMSD(sl.Task):
+    # Parameters
+    svm_cost = luigi.Parameter()
+    svm_gamma = luigi.Parameter()
+    svm_type = luigi.Parameter()
+    svm_kernel_type = luigi.Parameter()
+
+    # INPUT TARGETS
+    in_model = None
+    in_sparse_testdata = None
+    in_prediction = None
+
+    # DEFINE OUTPUTS
+    def out_assessment(self):
+        return sl.TargetInfo(self, self.in_prediction().path + '.rmsd')
+
+    # WHAT THE TASK DOES
+    def run(self):
+        with self.in_sparse_testdata().open() as testfile:
+            with self.in_prediction().open() as predfile:
+                squared_diffs = []
+                for tline, pline in zip(testfile, predfile):
+                    test = float(tline.split(' ')[0])
+                    pred = float(pline)
+                    squared_diff = (pred-test)**2
+                    squared_diffs.append(squared_diff)
+        rmsd = math.sqrt(sum(squared_diffs)/len(squared_diffs))
+        rmsd_records = {'rmsd': rmsd,
+                        'svm_cost': self.svm_cost,
+                        'svm_gamma': self.svm_gamma,
+                        'svm_type': self.svm_type,
+                        'svm_kernel_type': self.svm_kernel_type}
+        with self.out_assessment().open('w') as assessfile:
+            sl.util.dict_to_recordfile(assessfile, rmsd_records)
+
+## ====================================================================================================
+
 class CalcAverageRMSDForCost(sl.Task): # TODO: Check with Jonalv whether RMSD is what we want to do?!!
     # Parameters
     lin_cost = luigi.Parameter()
@@ -537,29 +574,31 @@ class SelectLowestRMSD(sl.Task):
 
 # ====================================================================================================
 
-class AssessSVMRegression(sl.Task):
+# *** DEPRECATED: Use AssessSVMRMSD instead! ***
 
-    # INPUT TARGETS
-    in_svmmodel = None
-    in_sparse_testdata = None
-    in_prediction = None
-
-    # TASK PARAMETERS
-    replicate_id = luigi.Parameter()
-    testdata_gzipped = luigi.BooleanParameter(default=True)
-
-    # DEFINE OUTPUTS
-    def out_plot(self):
-        return sl.TargetInfo(self, self.in_svmmodel().path + '.pred.png')
-    def out_log(self):
-        return sl.TargetInfo(self, self.in_svmmodel().path + '.pred.log')
-
-    # WHAT THE TASK DOES
-    def run(self):
-        # Run Assess
-        self.ex(['/usr/bin/xvfb-run /sw/apps/R/x86_64/3.0.2/bin/Rscript assess/assess.r',
-                '-p', self.in_prediction().path,
-                '-t', self.in_sparse_testdata().path])
+#class AssessSVMRegression(sl.Task):
+#
+#    # INPUT TARGETS
+#    in_svmmodel = None
+#    in_sparse_testdata = None
+#    in_prediction = None
+#
+#    # TASK PARAMETERS
+#    replicate_id = luigi.Parameter()
+#    testdata_gzipped = luigi.BooleanParameter(default=True)
+#
+#    # DEFINE OUTPUTS
+#    def out_plot(self):
+#        return sl.TargetInfo(self, self.in_svmmodel().path + '.pred.png')
+#    def out_log(self):
+#        return sl.TargetInfo(self, self.in_svmmodel().path + '.pred.log')
+#
+#    # WHAT THE TASK DOES
+#    def run(self):
+#        # Run Assess
+#        self.ex(['/usr/bin/xvfb-run /sw/apps/R/x86_64/3.0.2/bin/Rscript assess/assess.r',
+#                '-p', self.in_prediction().path,
+#                '-t', self.in_sparse_testdata().path])
 
 # ====================================================================================================
 

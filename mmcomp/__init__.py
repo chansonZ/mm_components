@@ -1,5 +1,6 @@
 from mmcomp import components
 from mmcomp.components import AssessLinearRMSD
+from mmcomp.components import AssessSVMRMSD
 from mmcomp.components import CalcAverageRMSDForCost
 from mmcomp.components import CreateFolds
 from mmcomp.components import CreateSparseTestDataset
