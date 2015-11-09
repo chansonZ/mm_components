@@ -146,6 +146,27 @@ class UnGzipFile(sl.SlurmTask):
 
 # ====================================================================================================
 
+class CreateRunCopy(sl.Task):
+
+    # TASK PARAMETERS
+    run_id = luigi.Parameter()
+
+    # TARGETS
+    in_file = None
+
+    def out_copy(self):
+        filedir = os.path.dirname(self.in_file().path)
+        filename = os.path.basename(self.in_file().path)
+        newdir = os.path.join(filedir, self.run_id)
+        if not os.path.isdir(newdir):
+            os.mkdir(newdir)
+        return sl.TargetInfo(self, os.path.join(newdir, filename))
+
+    def run(self):
+        shutil.copy(self.in_file().path, self.out_copy().path)
+
+# ====================================================================================================
+
 class CreateReplicateCopy(sl.Task):
 
     # TASK PARAMETERS
