@@ -19,3 +19,5 @@ from mmcomp.components import UnGzipFile
 from mmcomp.components import CountLines
 from mmcomp.components import CreateRandomData
 from mmcomp.components import ShuffleLines
+from mmcomp.components import CollectDataReportRow
+from mmcomp.components import CollectDataReport

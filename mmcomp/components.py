@@ -328,7 +328,7 @@ class TrainSVMModel(sl.Task):
             s = self.svm_type,
             t = self.svm_kernel_type))
 
-    def out_execution_time(self):
+    def out_traintime(self):
         return sl.TargetInfo(self, self.out_model().path + '.extime')
 
     # WHAT THE TASK DOES
@@ -376,7 +376,7 @@ class TrainSVMModel(sl.Task):
         # Select train command based on parameter
         if self.parallel_train:
             self.ex(['/usr/bin/time -f%e -o',
-                    self.out_execution_time().path,
+                    self.out_traintime().path,
                     'pisvm-train',
                     '-o', str(o),
                     '-q', str(q),
@@ -391,7 +391,7 @@ class TrainSVMModel(sl.Task):
                     '/dev/null']) # Needed, since there is no quiet mode in pisvm :/
         else:
             self.ex(['/usr/bin/time', '-f%e', '-o',
-                self.out_execution_time().path,
+                self.out_traintime().path,
                 'svm-train',
                 '-s', self.svm_type,
                 '-t', self.svm_kernel_type,
@@ -427,14 +427,14 @@ class TrainLinearModel(sl.SlurmTask):
             s = self.lin_type,
             c = self.lin_cost))
 
-    def out_execution_time(self):
+    def out_traintime(self):
         return sl.TargetInfo(self, self.out_model().path + '.extime')
 
     # WHAT THE TASK DOES
     def run(self):
         #self.ex(['distlin-train',
         self.ex(['/usr/bin/time', '-f%e', '-o',
-            self.out_execution_time().path,
+            self.out_traintime().path,
             'lin-train',
             '-s', self.lin_type,
             '-c', self.lin_cost,
@@ -554,7 +554,89 @@ class AssessSVMRMSD(sl.Task):
         with self.out_assessment().open('w') as assessfile:
             sl.util.dict_to_recordfile(assessfile, rmsd_records)
 
-## ====================================================================================================
+# ====================================================================================================
+
+class CollectDataReportRow(sl.Task):
+    dataset_name = luigi.Parameter()
+    train_method = luigi.Parameter()
+    train_size = luigi.Parameter()
+    replicate_id = luigi.Parameter()
+    lin_cost = luigi.Parameter()
+
+    in_rmsd = None
+    in_traintime = None
+
+    def out_datareport_row(self):
+        outdir = os.path.dirname(self.in_rmsd().path)
+        return sl.TargetInfo(self, os.path.join(outdir, '{ds}_{lm}_{ts}_{ri}_datarow.txt'.format(
+                    ds=self.dataset_name,
+                    lm=self.train_method,
+                    ts=self.train_size,
+                    ri=self.replicate_id
+                )))
+
+    def run(self):
+        with self.in_rmsd().open() as rmsdfile:
+            rmsddict = sl.recordfile_to_dict(rmsdfile)
+            rmsd = rmsddict['rmsd']
+
+        with self.in_traintime().open() as traintimefile:
+            train_time_sec = traintimefile.read().rstrip('\n')
+
+        if self.lin_cost is not None:
+            lin_cost = self.lin_cost
+        else:
+            lin_cost = 'NA'
+
+        with self.out_datareport_row().open('w') as outfile:
+            rdata = { 'dataset_name': self.dataset_name,
+                      'train_method': self.train_method,
+                      'train_size': self.train_size,
+                      'replicate_id': self.replicate_id,
+                      'rmsd': rmsd,
+                      'train_time_sec': train_time_sec,
+                      'lin_cost': lin_cost}
+            sl.dict_to_recordfile(outfile, rdata)
+
+# ====================================================================================================
+
+class CollectDataReport(sl.Task):
+    dataset_name = luigi.Parameter()
+    train_method = luigi.Parameter()
+
+    in_datareport_rows = None
+
+    def out_datareport(self):
+        outdir = os.path.dirname(self.in_datareport_rows[0]().path)
+        return sl.TargetInfo(self, os.path.join(outdir, '{ds}_{tm}_datareport.csv'.format(
+                    ds=self.dataset_name,
+                    tm=self.train_method
+               )))
+
+    def run(self):
+        with self.out_datareport().open('w') as outfile:
+            csvwrt = csv.writer(outfile)
+            # Write header
+            csvwrt.writerow(['dataset_name',
+                             'train_method',
+                             'train_size',
+                             'replicate_id',
+                             'rmsd',
+                             'train_time_sec',
+                             'lin_cost'])
+            # Write data rows
+            for intargetinfofunc in self.in_datareport_rows:
+                with intargetinfofunc().open() as infile:
+                    r = sl.recordfile_to_dict(infile)
+                    csvwrt.writerow([r['dataset_name'],
+                                     r['train_method'],
+                                     r['train_size'],
+                                     r['replicate_id'],
+                                     r['rmsd'],
+                                     r['train_time_sec'],
+                                     r['lin_cost']])
+
+# ====================================================================================================
 
 class CalcAverageRMSDForCost(sl.Task): # TODO: Check with Jonalv whether RMSD is what we want to do?!!
     # Parameters
