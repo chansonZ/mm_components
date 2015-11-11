@@ -375,7 +375,7 @@ class TrainSVMModel(sl.Task):
 
         # Select train command based on parameter
         if self.parallel_train:
-            self.ex(['/usr/bin/time -f%e -o',
+            self.ex(['/usr/bin/time', '-f%e', '-o',
                     self.out_traintime().path,
                     'pisvm-train',
                     '-o', str(o),
