@@ -565,6 +565,7 @@ class CollectDataReportRow(sl.Task):
 
     in_rmsd = None
     in_traintime = None
+    in_trainsize_filtered = None
 
     def out_datareport_row(self):
         outdir = os.path.dirname(self.in_rmsd().path)
@@ -583,6 +584,9 @@ class CollectDataReportRow(sl.Task):
         with self.in_traintime().open() as traintimefile:
             train_time_sec = traintimefile.read().rstrip('\n')
 
+        with self.in_trainsize_filtered().open() as trainsizefile:
+            train_size_filtered = trainsizefile.read().strip('\n')
+
         if self.lin_cost is not None:
             lin_cost = self.lin_cost
         else:
@@ -592,6 +596,7 @@ class CollectDataReportRow(sl.Task):
             rdata = { 'dataset_name': self.dataset_name,
                       'train_method': self.train_method,
                       'train_size': self.train_size,
+                      'train_size_filtered': train_size_filtered,
                       'replicate_id': self.replicate_id,
                       'rmsd': rmsd,
                       'train_time_sec': train_time_sec,
@@ -620,6 +625,7 @@ class CollectDataReport(sl.Task):
             csvwrt.writerow(['dataset_name',
                              'train_method',
                              'train_size',
+                             'train_size_filtered',
                              'replicate_id',
                              'rmsd',
                              'train_time_sec',
@@ -631,6 +637,7 @@ class CollectDataReport(sl.Task):
                     csvwrt.writerow([r['dataset_name'],
                                      r['train_method'],
                                      r['train_size'],
+                                     r['train_size_filtered'],
                                      r['replicate_id'],
                                      r['rmsd'],
                                      r['train_time_sec'],
