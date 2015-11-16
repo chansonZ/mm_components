@@ -304,7 +304,7 @@ class CreateSparseTestDataset(sl.Task):
 
 # ====================================================================================================
 
-class TrainSVMModel(sl.Task):
+class TrainSVMModel(sl.SlurmTask):
 
     # INPUT TARGETS
     in_traindata = None
