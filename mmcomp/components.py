@@ -55,6 +55,20 @@ class DBHelpers(sl.Task):
 
 # ====================================================================================================
 
+class ExistingFile(sl.ExternalTask):
+    '''External task for getting hand on existing files'''
+
+    # PARAMETERS
+    file_path = luigi.Parameter()
+
+    # TARGETS
+    def out_file(self):
+        dirpath = os.path.abspath('.')
+        filepath = os.path.join(dirpath, self.file_path)
+        return sl.TargetInfo(self, filepath)
+
+# ====================================================================================================
+
 class ExistingSmiles(sl.ExternalTask):
     '''External task for getting hand on existing smiles files'''
 
