@@ -1654,15 +1654,22 @@ class BCutSplitTrainTest(sl.Task):
 # ====================================================================================================
 
 class CountLines(sl.SlurmTask):
+    ungzip = luigi.BooleanParameter(default=False)
+
     in_file = None
 
     def out_linecount(self):
         return sl.TargetInfo(self, self.in_file().path + '.linecnt')
 
     def run(self):
+        if self.ungzip:
+            cmd = 'zcat %s | wc -l' % self.in_file().path
+        else:
+            cmd = 'wc -l %s' % self.in_file().path
+
         with self.in_file().open() as infile:
             with self.out_linecount().open('w') as outfile:
-                stat, out, err = self.ex_local('wc -l %s' % self.in_file().path)
+                stat, out, err = self.ex_local(cmd)
                 linecnt = int(out.split(' ')[0])
                 outfile.write(str(linecnt))
 
