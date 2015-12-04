@@ -14,6 +14,7 @@ from mmcomp.components import PredictLinearModel
 from mmcomp.components import PredictSVMModel
 from mmcomp.components import SampleTrainAndTest
 from mmcomp.components import SelectLowestRMSD
+from mmcomp.components import SelectPercentIndexValue
 from mmcomp.components import TrainLinearModel
 from mmcomp.components import TrainSVMModel
 from mmcomp.components import UnGzipFile

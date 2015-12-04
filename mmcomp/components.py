@@ -1763,3 +1763,26 @@ class CreateFolds(sl.SlurmTask):
                  self.in_dataset().path,
                  '>',
                  self.out_traindata().path])
+
+# ================================================================================
+
+class SelectPercentIndexValue(sl.Task):
+
+    # TASK PARAMETERS
+    percent_index = luigi.IntParameter()
+
+    # TARGETS
+    in_prediction = None
+
+    def out_indexvalue(self):
+        return sl.TargetInfo(self, self.in_prediction().path + '.idx{i:d}'.format(i=self.percent_index))
+
+    def run(self):
+        with self.in_prediction().open() as infile:
+            lines = [float(l) for l in infile.readlines()]
+            lines.sort()
+            linescnt = len(lines)
+            index = int(linescnt * (self.percent_index / 100.0))
+            indexval = lines[index]
+            with self.out_indexvalue().open('w') as outfile:
+                outfile.write('%f\n' % indexval)
