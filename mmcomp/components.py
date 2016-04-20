@@ -738,7 +738,16 @@ class SelectLowestRMSD(sl.Task):
 
 # ====================================================================================================
 
-class CreateReport(sl.Task):
+class CreateHtmlReport(sl.Task):
+
+    # TASK PARAMETERS
+    dataset_name = luigi.Parameter()
+    train_size = luigi.Parameter()
+    test_size = luigi.Parameter()
+    svm_cost = luigi.Parameter()
+    svm_gamma = luigi.Parameter()
+    replicate_id = luigi.Parameter()
+    accounted_project = luigi.Parameter()
 
     # INPUT TARGETS
     in_signatures = None
@@ -749,15 +758,6 @@ class CreateReport(sl.Task):
     in_svmmodel = None
     in_assess_svm_log = None
     in_assess_svm_plot = None
-
-    # TASK PARAMETERS
-    dataset_name = luigi.Parameter()
-    train_size = luigi.Parameter()
-    test_size = luigi.Parameter()
-    svm_cost = luigi.Parameter()
-    svm_gamma = luigi.Parameter()
-    replicate_id = luigi.Parameter()
-    accounted_project = luigi.Parameter()
 
     # DEFINE OUTPUTS
     def out_html_report(self):

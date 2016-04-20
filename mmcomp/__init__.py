@@ -6,6 +6,7 @@ from mmcomp.components import CollectDataReport
 from mmcomp.components import CollectDataReportRow
 from mmcomp.components import CountLines
 from mmcomp.components import CreateFolds
+from mmcomp.components import CreateHtmlReport
 from mmcomp.components import CreateRandomData
 from mmcomp.components import CreateSparseTestDataset
 from mmcomp.components import CreateSparseTrainDataset
