@@ -24,3 +24,4 @@ from mmcomp.components import ShuffleLines
 from mmcomp.components import TrainLinearModel
 from mmcomp.components import TrainSVMModel
 from mmcomp.components import UnGzipFile
+from mmcomp.components import MergeOrigAndPredValues

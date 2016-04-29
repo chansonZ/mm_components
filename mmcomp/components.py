@@ -1786,3 +1786,20 @@ class SelectPercentIndexValue(sl.Task):
             indexval = lines[index]
             with self.out_indexvalue().open('w') as outfile:
                 outfile.write('%f\n' % indexval)
+
+# ================================================================================
+
+class MergeOrigAndPredValues(sl.Task):
+    # TARGETS
+    in_original_dataset = lambda: sl.TargetInfo(None, None)
+    in_predicted_dataset = lambda: sl.TargetInfo(None, None)
+
+    def out_merged(self):
+        return sl.TargetInfo(self, self.in_original_dataset().path + '.merged')
+
+    def run(self):
+        with self.in_original_dataset().open() as origfile:
+            with self.in_predicted_dataset().open() as predfile:
+                with self.out_merged().open('w') as outfile:
+                    for orig, pred in zip(origfile, predfile):
+                        outfile.write(orig.split(' ')[0] + ', ' + pred + '\n')
