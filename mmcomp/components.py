@@ -124,6 +124,7 @@ class GenerateSignaturesFilterSubstances(sl.SlurmTask):
     # TASK PARAMETERS
     min_height = luigi.IntParameter()
     max_height = luigi.IntParameter()
+    silent_mode = luigi.BooleanParameter(default=True)
 
     # INPUT TARGETS
     in_smiles = None
@@ -140,7 +141,7 @@ class GenerateSignaturesFilterSubstances(sl.SlurmTask):
                 '-minheight', str(self.min_height),
                 '-maxheight', str(self.max_height),
                 '-outputfile', self.out_signatures().path,
-                '-silent'])
+                '-silent' if self.silent_mode else ''])
         self.ex_local(['touch', self.out_signatures().path])
 
 # ====================================================================================================
