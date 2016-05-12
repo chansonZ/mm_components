@@ -1843,7 +1843,9 @@ class PlotCSV(sl.Task):
         tsf.write(rscript)
         tsf.close()
         # Execute the R script
-        self.ex_local(['Rscript',
+        self.ex_local(['xvfb-run',
+                       '-d',
+                       'Rscript',
                        tempscriptpath,
                        '-i',
                        self.in_csv().path,
