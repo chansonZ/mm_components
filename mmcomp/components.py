@@ -16,6 +16,7 @@ import string
 import sys
 import textwrap
 import time
+import uuid
 from ConfigParser import ConfigParser
 
 # ====================================================================================================
@@ -1804,3 +1805,50 @@ class MergeOrigAndPredValues(sl.Task):
                 with self.out_merged().open('w') as outfile:
                     for orig, pred in zip(origfile, predfile):
                         outfile.write(orig.split(' ')[0] + ', ' + pred + '\n')
+
+# ================================================================================
+
+class PlotCSV(sl.Task):
+    # TARGETS
+    in_csv = lambda: sl.TargetInfo(None, None)
+
+    def out_png(self):
+        return sl.TargetInfo(self, self.in_csv().path + '.png')
+
+    def run(self):
+        # Create a temporary R script
+        rscript = u'''
+        ## Parse arguments
+        library('argparse')
+        p <- ArgumentParser()
+        p$add_argument("-i", "--input", type="character",
+                       help="Input file in CSV format")
+        p$add_argument("-o", "--output", type="character",
+                       help="Output file (will be in .png format)")
+        args <- p$parse_args()
+
+        ## Plot
+        if ( args$input != '' && args$output != '' ) {
+          data = read.csv(file=args$input, header = FALSE)
+          png(filename=paste(args$input, '.png', sep=''))
+          plot(data);
+          dev.off()
+        } else {
+            print('Either input or output is missing! Use -h to see options!')
+            quit(1)
+        }
+        '''
+        tempscriptpath='.temp-r-script-%s-.r' % uuid.uuid4()
+        tsf = open(tempscriptpath,'w')
+        tsf.write(rscript)
+        tsf.close()
+        # Execute the R script
+        self.ex_local(['Rscript',
+                       tempscriptpath,
+                       '-i',
+                       self.in_csv().path,
+                       '-o',
+                       self.out_png().path])
+        # Remove the temporary R script
+        self.ex_local(['rm',
+                       tempscriptpath])
