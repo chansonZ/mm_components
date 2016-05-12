@@ -1838,7 +1838,7 @@ class PlotCSV(sl.Task):
             quit(1)
         }
         '''
-        tempscriptpath='.temp-r-script-%s-.r' % uuid.uuid4()
+        tempscriptpath='.temp-r-script-%s.r' % uuid.uuid4()
         tsf = open(tempscriptpath,'w')
         tsf.write(rscript)
         tsf.close()
